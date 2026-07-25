@@ -34,7 +34,8 @@
         {
           "supportsBackgroundPlayback": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},

@@ -23,6 +23,11 @@ export function JsEngineView() {
       onMessage={handleMessage}
       javaScriptEnabled
       style={styles.hidden}
+      // react-native-webview wraps the native view in its own outer <View>, styled
+      // separately via `containerStyle` (defaults to flex: 1). Without this, that
+      // wrapper stays in normal flow as a flex:1 sibling and claims half the screen
+      // from the root layout, regardless of `style` on the WebView itself.
+      containerStyle={styles.hidden}
       pointerEvents="none"
     />
   );
