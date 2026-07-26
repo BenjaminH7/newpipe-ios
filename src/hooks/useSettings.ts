@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import {
   getSettingsSync,
   loadSettings,
+  setHideSubscriptionsTab,
   setMusicQuotaMinutes,
   setSkipProductPlacements,
   setTextOnlyMode,
   setThemeMode,
+  setTranslateLyrics,
   setVideoQuotaMinutes,
   subscribeSettings,
   type ThemeMode,
@@ -31,6 +33,17 @@ export function useTextOnlyMode(): [boolean, (value: boolean) => void] {
   }, []);
 
   return [enabled, setTextOnlyMode];
+}
+
+export function useTranslateLyrics(): [boolean, (value: boolean) => void] {
+  const [enabled, setEnabled] = useState(getSettingsSync().translateLyrics);
+
+  useEffect(() => {
+    loadSettings().then((s) => setEnabled(s.translateLyrics));
+    return subscribeSettings((s) => setEnabled(s.translateLyrics));
+  }, []);
+
+  return [enabled, setTranslateLyrics];
 }
 
 export function useThemeMode(): [ThemeMode, (value: ThemeMode) => void] {
@@ -64,4 +77,15 @@ export function useMusicQuotaMinutes(): [number, (value: number) => void] {
   }, []);
 
   return [minutes, setMusicQuotaMinutes];
+}
+
+export function useHideSubscriptionsTab(): [boolean, (value: boolean) => void] {
+  const [hidden, setHidden] = useState(getSettingsSync().hideSubscriptionsTab);
+
+  useEffect(() => {
+    loadSettings().then((s) => setHidden(s.hideSubscriptionsTab));
+    return subscribeSettings((s) => setHidden(s.hideSubscriptionsTab));
+  }, []);
+
+  return [hidden, setHideSubscriptionsTab];
 }

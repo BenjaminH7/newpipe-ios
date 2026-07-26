@@ -9,17 +9,21 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 interface Settings {
   skipProductPlacements: boolean;
   textOnlyMode: boolean;
+  translateLyrics: boolean;
   themeMode: ThemeMode;
   videoQuotaMinutes: number;
   musicQuotaMinutes: number;
+  hideSubscriptionsTab: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   skipProductPlacements: true,
   textOnlyMode: false,
+  translateLyrics: true,
   themeMode: 'system',
   videoQuotaMinutes: 30,
   musicQuotaMinutes: 30,
+  hideSubscriptionsTab: false,
 };
 
 let cache: Settings = DEFAULT_SETTINGS;
@@ -71,6 +75,12 @@ export async function setTextOnlyMode(value: boolean): Promise<void> {
   await persist();
 }
 
+export async function setTranslateLyrics(value: boolean): Promise<void> {
+  cache = { ...cache, translateLyrics: value };
+  notify();
+  await persist();
+}
+
 export async function setThemeMode(value: ThemeMode): Promise<void> {
   cache = { ...cache, themeMode: value };
   notify();
@@ -85,6 +95,12 @@ export async function setVideoQuotaMinutes(value: number): Promise<void> {
 
 export async function setMusicQuotaMinutes(value: number): Promise<void> {
   cache = { ...cache, musicQuotaMinutes: value };
+  notify();
+  await persist();
+}
+
+export async function setHideSubscriptionsTab(value: boolean): Promise<void> {
+  cache = { ...cache, hideSubscriptionsTab: value };
   notify();
   await persist();
 }

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchLyrics, type LyricsLine, type LyricsResult } from '@/api/lyrics';
 import { translateLines, translateText } from '@/api/translate';
 import { QuotaBlockedView } from '@/components/QuotaBlockedView';
-import { useMusicQuotaMinutes } from '@/hooks/useSettings';
+import { useMusicQuotaMinutes, useTranslateLyrics } from '@/hooks/useSettings';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -50,6 +50,7 @@ export default function MusicPlayerScreen() {
   } = usePlayer();
   const [trackWidth, setTrackWidth] = useState(0);
   const [musicQuotaMinutes] = useMusicQuotaMinutes();
+  const [translateLyrics, setTranslateLyrics] = useTranslateLyrics();
   const musicQuotaExceeded = useMusicQuotaExceeded();
 
   const [showLyrics, setShowLyrics] = useState(false);
@@ -77,8 +78,10 @@ export default function MusicPlayerScreen() {
 
   // Traduction en français des paroles, chargée une fois qu'elles sont
   // disponibles (synchronisées ligne par ligne, ou en bloc pour le texte brut).
+  // Contrôlée par le réglage "Traduire les paroles" (activable aussi via
+  // l'icône dédiée du lecteur).
   useEffect(() => {
-    if (!lyrics) return;
+    if (!lyrics || !translateLyrics) return;
     let cancelled = false;
     if (lyrics.synced && lyrics.synced.length > 0) {
       translateLines(lyrics.synced.map((line) => line.text)).then((result) => {
@@ -92,7 +95,7 @@ export default function MusicPlayerScreen() {
     return () => {
       cancelled = true;
     };
-  }, [lyrics]);
+  }, [lyrics, translateLyrics]);
 
   const activeLyricsLine = useMemo(() => {
     if (!lyrics?.synced) return -1;
@@ -221,6 +224,15 @@ export default function MusicPlayerScreen() {
           <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={8}>
             <Ionicons name={showLyrics ? 'mic' : 'mic-outline'} size={22} color={showLyrics ? colors.accent : colors.text} />
           </Pressable>
+          {showLyrics && (
+            <Pressable onPress={() => setTranslateLyrics(!translateLyrics)} hitSlop={8}>
+              <Ionicons
+                name={translateLyrics ? 'language' : 'language-outline'}
+                size={22}
+                color={translateLyrics ? colors.accent : colors.text}
+              />
+            </Pressable>
+          )}
           <Pressable onPress={openSleepTimerPicker} hitSlop={8}>
             <Ionicons name="timer-outline" size={22} color={sleepTimerRemaining !== null ? colors.accent : colors.text} />
           </Pressable>
@@ -249,7 +261,7 @@ export default function MusicPlayerScreen() {
                   <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
                     {item.text || '♪'}
                   </Text>
-                  {syncedTranslations?.[index] && (
+                  {translateLyrics && syncedTranslations?.[index] && (
                     <Text
                       style={[
                         styles.lyricsTranslation,
@@ -266,7 +278,7 @@ export default function MusicPlayerScreen() {
           {lyricsStatus === 'ready' && (!lyrics?.synced || lyrics.synced.length === 0) && lyrics?.plain && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsListContent}>
               <Text style={styles.lyricsPlainText}>{lyrics.plain}</Text>
-              {plainTranslation && (
+              {translateLyrics && plainTranslation && (
                 <>
                   <Text style={styles.translationDivider}>Traduction</Text>
                   <Text style={styles.lyricsPlainText}>{plainTranslation}</Text>

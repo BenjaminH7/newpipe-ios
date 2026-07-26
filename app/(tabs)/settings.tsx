@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import {
+  useHideSubscriptionsTab,
   useMusicQuotaMinutes,
   useSkipProductPlacements,
   useTextOnlyMode,
   useThemeMode,
+  useTranslateLyrics,
   useVideoQuotaMinutes,
 } from '@/hooks/useSettings';
 import type { ThemeMode } from '@/storage/settings';
@@ -146,8 +148,10 @@ export default function SettingsScreen() {
   const [textOnlyMode, setTextOnlyMode] = useTextOnlyMode();
   const [skipProductPlacements, setSkipProductPlacements] = useSkipProductPlacements();
   const [themeMode, setThemeMode] = useThemeMode();
+  const [translateLyrics, setTranslateLyrics] = useTranslateLyrics();
   const [videoQuotaMinutes, setVideoQuotaMinutes] = useVideoQuotaMinutes();
   const [musicQuotaMinutes, setMusicQuotaMinutes] = useMusicQuotaMinutes();
+  const [hideSubscriptionsTab, setHideSubscriptionsTab] = useHideSubscriptionsTab();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -160,6 +164,19 @@ export default function SettingsScreen() {
         <ThemeModeSelector mode={themeMode} onChange={setThemeMode} colors={colors} styles={styles} />
       </View>
 
+      <Text style={styles.sectionTitle}>Onglets</Text>
+      <View style={[sharedStyles.card, styles.section]}>
+        <SettingRow
+          title="Masquer l'onglet Abonnements"
+          description="Retire l'onglet Abonnements de la barre de navigation."
+          value={hideSubscriptionsTab}
+          onValueChange={setHideSubscriptionsTab}
+          colors={colors}
+          sharedStyles={sharedStyles}
+          styles={styles}
+        />
+      </View>
+
       <Text style={styles.sectionTitle}>Recherche</Text>
       <View style={[sharedStyles.card, styles.section]}>
         <SettingRow
@@ -167,6 +184,19 @@ export default function SettingsScreen() {
           description="Cache les miniatures dans les résultats de recherche et les remplace par un carré gris avec la durée, pour éviter le putaclic."
           value={textOnlyMode}
           onValueChange={setTextOnlyMode}
+          colors={colors}
+          sharedStyles={sharedStyles}
+          styles={styles}
+        />
+      </View>
+
+      <Text style={styles.sectionTitle}>Paroles</Text>
+      <View style={[sharedStyles.card, styles.section]}>
+        <SettingRow
+          title="Traduire les paroles"
+          description="Affiche une traduction en français sous les paroles synchronisées du lecteur musique."
+          value={translateLyrics}
+          onValueChange={setTranslateLyrics}
           colors={colors}
           sharedStyles={sharedStyles}
           styles={styles}

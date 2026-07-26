@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useHideSubscriptionsTab } from '@/hooks/useSettings';
 import { useTheme } from '@/theme';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const [hideSubscriptionsTab] = useHideSubscriptionsTab();
 
   return (
     <Tabs
@@ -32,6 +34,7 @@ export default function TabsLayout() {
         name="subscriptions"
         options={{
           title: 'Abonnements',
+          href: hideSubscriptionsTab ? null : undefined,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
           ),
