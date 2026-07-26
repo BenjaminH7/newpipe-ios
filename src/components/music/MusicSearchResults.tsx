@@ -291,7 +291,9 @@ function createStyles(colors: ColorPalette) {
     filterLabelActive: {
       color: colors.background,
     },
+    // flexGrow: 1 pour que les <EmptyView /> centrés ne s'écrasent pas à zéro.
     list: {
+      flexGrow: 1,
       paddingHorizontal: 20,
     },
     loader: {

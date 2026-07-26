@@ -571,13 +571,26 @@ export default function MusicPlayerScreen() {
               )}
             </Pressable>
           </View>
-          <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={10}>
-            <Ionicons
-              name={showLyrics ? 'musical-notes' : 'musical-notes-outline'}
-              size={22}
-              color={showLyrics ? colors.accent : 'rgba(255,255,255,0.7)'}
-            />
-          </Pressable>
+          <View style={styles.secondaryGroup}>
+            <Pressable
+              onPress={() => setShowLyrics((v) => !v)}
+              hitSlop={10}
+              accessibilityLabel="Paroles"
+            >
+              <Ionicons
+                name={showLyrics ? 'musical-notes' : 'musical-notes-outline'}
+                size={22}
+                color={showLyrics ? colors.accent : 'rgba(255,255,255,0.7)'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/music/queue')}
+              hitSlop={10}
+              accessibilityLabel="File d’attente"
+            >
+              <Ionicons name="list-outline" size={24} color="rgba(255,255,255,0.7)" />
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>

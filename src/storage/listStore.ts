@@ -7,6 +7,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export interface ListStore<T> {
   getSync: () => T[];
   load: () => Promise<T[]>;
+  /** `false` tant que le premier load() n'a pas abouti : permet de distinguer
+   *  « collection vide » de « pas encore lue depuis le disque ». */
+  isLoaded: () => boolean;
   has: (id: string) => boolean;
   add: (item: T) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -32,6 +35,7 @@ export function createListStore<T>(storageKey: string, getId: (item: T) => strin
 
   const store: ListStore<T> = {
     getSync: () => cache,
+    isLoaded: () => loaded,
     load() {
       if (loaded) return Promise.resolve(cache);
       if (loadPromise) return loadPromise;

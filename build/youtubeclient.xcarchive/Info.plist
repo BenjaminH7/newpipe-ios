@@ -15,7 +15,7 @@
 		<key>CFBundleShortVersionString</key>
 		<string>1.0.0</string>
 		<key>CFBundleVersion</key>
-		<string>21</string>
+		<string>23</string>
 		<key>SigningIdentity</key>
 		<string>Apple Development: Benjamin Heymann (3VD7KDTAPG)</string>
 		<key>Team</key>
@@ -24,7 +24,7 @@
 	<key>ArchiveVersion</key>
 	<integer>2</integer>
 	<key>CreationDate</key>
-	<date>2026-07-26T17:31:42Z</date>
+	<date>2026-07-26T21:25:22Z</date>
 	<key>Distributions</key>
 	<array>
 		<dict>
@@ -35,11 +35,11 @@
 			<key>destination</key>
 			<string>upload</string>
 			<key>identifier</key>
-			<string>33fce233-5757-4f9d-b9bf-1d90d2f93942</string>
+			<string>8ec0df85-541a-4727-8bf2-3c0123c45eb7</string>
 			<key>preparationEvent</key>
 			<dict>
 				<key>date</key>
-				<string>2026-07-26T17:32:06Z</string>
+				<string>2026-07-26T21:25:47Z</string>
 				<key>errors</key>
 				<array/>
 				<key>infoMessages</key>
@@ -64,7 +64,7 @@
 			<key>uploadEvent</key>
 			<dict>
 				<key>date</key>
-				<string>2026-07-26T17:33:47Z</string>
+				<string>2026-07-26T21:27:25Z</string>
 				<key>errors</key>
 				<array/>
 				<key>infoMessages</key>
@@ -79,7 +79,7 @@
 				<array/>
 			</dict>
 			<key>uploadedBuildNumber</key>
-			<string>21</string>
+			<string>23</string>
 		</dict>
 	</array>
 	<key>Name</key>

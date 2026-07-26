@@ -41,6 +41,10 @@ interface PlayerContextValue {
   enqueueNext: (track: MusicTrack) => void;
   /** Ajoute un titre en fin de file. */
   enqueueLast: (track: MusicTrack) => void;
+  /** Saute à un titre déjà présent dans la file (écran « File d'attente »). */
+  playFromQueue: (track: MusicTrack) => void;
+  /** Retire un titre de la file ; sans effet sur la piste en cours. */
+  removeFromQueue: (trackId: string) => void;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
@@ -364,6 +368,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [loadAndPlay],
   );
 
+  // Saut direct depuis l'écran « File d'attente » : contrairement à playTrack,
+  // la file et le mode radio restent tels quels — on ne fait que déplacer le
+  // curseur de lecture dedans.
+  const playFromQueue = useCallback(
+    (track: MusicTrack) => {
+      if (track.id === currentTrackRef.current?.id) return;
+      loadAndPlay(track);
+    },
+    [loadAndPlay],
+  );
+
+  // Retirer la piste en cours de la file laisserait le lecteur sans repère
+  // pour calculer la suivante : on la protège.
+  const removeFromQueue = useCallback((trackId: string) => {
+    if (trackId === currentTrackRef.current?.id) return;
+    setQueue((prev) => prev.filter((t) => t.id !== trackId));
+  }, []);
+
   const stepQueue = useCallback(
     async (direction: 1 | -1) => {
       const q = queueRef.current;
@@ -529,6 +551,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       playTrackRadio,
       enqueueNext,
       enqueueLast,
+      playFromQueue,
+      removeFromQueue,
       togglePlay,
       playNext,
       playPrevious,
@@ -554,6 +578,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       playTrackRadio,
       enqueueNext,
       enqueueLast,
+      playFromQueue,
+      removeFromQueue,
       togglePlay,
       playNext,
       playPrevious,

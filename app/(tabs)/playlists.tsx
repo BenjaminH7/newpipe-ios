@@ -19,7 +19,7 @@ export default function PlaylistsScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Playlists"
+        title="À regarder"
         subtitle={
           videos.length > 0 ? `${videos.length} vidéo${videos.length > 1 ? 's' : ''}` : undefined
         }

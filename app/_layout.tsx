@@ -52,9 +52,16 @@ function RootLayoutContent() {
                 contentStyle: { backgroundColor: '#121212' },
               }}
             />
+            {/* La file d'attente se présente comme le player : une feuille qui
+                remonte par-dessus, refermable d'un swipe. */}
+            <Stack.Screen
+              name="music/queue"
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
             <Stack.Screen name="music/artist" options={{ headerShown: false }} />
             <Stack.Screen name="music/album" options={{ headerShown: false }} />
             <Stack.Screen name="music/playlist" options={{ headerShown: false }} />
+            <Stack.Screen name="music/local-playlist" options={{ title: '' }} />
             <Stack.Screen name="music/search" options={{ headerShown: false }} />
             <Stack.Screen name="music/browse" options={{ title: '' }} />
             <Stack.Screen name="music/mood" options={{ title: '' }} />

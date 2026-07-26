@@ -42,13 +42,17 @@ export default function MusicHomeScreen() {
   const [activeChip, setActiveChip] = useState<HomeChip | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Changement de chip : le feed déjà affiché reste à l'écran sous un voile le
+  // temps de la requête, au lieu de laisser un écran blanc à chaque filtre.
+  const [switchingChip, setSwitchingChip] = useState(false);
 
   // Jeton anti-course : deux chips enchaînés peuvent revenir dans le désordre.
   const requestRef = useRef(0);
 
-  const load = useCallback(async (chip: HomeChip | null) => {
+  const load = useCallback(async (chip: HomeChip | null, keepContent = false) => {
     const token = ++requestRef.current;
-    setStatus('loading');
+    if (keepContent) setSwitchingChip(true);
+    else setStatus('loading');
     setError(null);
     try {
       const result = await getMusicHome(chip ? { params: chip.params } : undefined);
@@ -60,6 +64,8 @@ export default function MusicHomeScreen() {
       if (requestRef.current !== token) return;
       setError(e instanceof Error ? e.message : 'Impossible de charger l’accueil.');
       setStatus('error');
+    } finally {
+      if (requestRef.current === token) setSwitchingChip(false);
     }
   }, []);
 
@@ -107,7 +113,7 @@ export default function MusicHomeScreen() {
     (chip: HomeChip | null) => {
       const next = chip && chip.params === activeChip?.params ? null : chip;
       setActiveChip(next);
-      load(next);
+      load(next, true);
     },
     [activeChip, load],
   );
@@ -141,15 +147,9 @@ export default function MusicHomeScreen() {
       <ScreenHeader
         title="Accueil"
         right={
+          // Explorer a rejoint l'écran de recherche (« Parcourir tout »), ce qui
+          // libère la place des Réglages — jusqu'ici sans aucun point d'entrée.
           <View style={styles.headerActions}>
-            <Pressable
-              onPress={() => router.push('/music/explore')}
-              hitSlop={8}
-              accessibilityLabel="Explorer"
-              style={({ pressed }) => pressed && styles.pressed}
-            >
-              <Ionicons name="compass-outline" size={25} color={colors.text} />
-            </Pressable>
             <Pressable
               onPress={() => router.push('/music/releases')}
               hitSlop={8}
@@ -170,6 +170,14 @@ export default function MusicHomeScreen() {
               style={({ pressed }) => pressed && styles.pressed}
             >
               <Ionicons name="time-outline" size={25} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/settings')}
+              hitSlop={8}
+              accessibilityLabel="Réglages"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="settings-outline" size={25} color={colors.text} />
             </Pressable>
           </View>
         }
@@ -223,6 +231,7 @@ export default function MusicHomeScreen() {
         />
       )}
       {status === 'ready' && page && page.sections.length > 0 && (
+        <View style={styles.feed}>
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
@@ -249,6 +258,12 @@ export default function MusicHomeScreen() {
           ))}
           {loadingMore && <ActivityIndicator color={colors.muted} style={styles.moreLoader} />}
         </ScrollView>
+        {switchingChip && (
+          <View style={styles.switchOverlay}>
+            <ActivityIndicator color={colors.text} />
+          </View>
+        )}
+        </View>
       )}
 
       <MiniPlayer />
@@ -352,6 +367,18 @@ function createStyles(colors: ColorPalette) {
     },
     chipLabelActive: {
       color: colors.background,
+    },
+    feed: {
+      flex: 1,
+    },
+    // Voile posé sur le feed pendant un changement de chip : il masque à moitié
+    // le contenu périmé et absorbe les touches, sans faire disparaître la page.
+    switchOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      opacity: 0.6,
     },
     scrollContent: {
       paddingTop: 10,

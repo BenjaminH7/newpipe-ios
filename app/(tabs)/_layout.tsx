@@ -70,13 +70,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* La route s'appelle toujours "playlists" (clé de réglage et historique
+          de navigation), mais l'onglet ne contient que les vidéos mises de côté
+          au signet : l'appeler "Playlists" le confondait avec le filtre
+          Playlists de la Bibliothèque, qui liste des playlists musicales. */}
       <Tabs.Screen
         name="playlists"
         options={{
-          title: 'Playlists',
+          title: 'À regarder',
           href: hidePlaylistsTab ? null : undefined,
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'albums' : 'albums-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'bookmark' : 'bookmark-outline'} size={size} color={color} />
           ),
         }}
       />

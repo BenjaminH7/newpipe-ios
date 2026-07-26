@@ -323,7 +323,7 @@ export default function VideoDetailScreen() {
         </View>
       ) : fetchState === 'error' ? (
         <Text style={[sharedStyles.mutedText, styles.descriptionBox]}>
-          Impossible de récupérer la description complète pour l'instant.
+          Impossible de récupérer la description complète pour l’instant.
         </Text>
       ) : null}
     </ScrollView>

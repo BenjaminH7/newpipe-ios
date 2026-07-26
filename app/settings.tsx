@@ -243,8 +243,8 @@ export default function SettingsScreen() {
         />
         <View style={styles.separator} />
         <SettingRow
-          title="Masquer l'onglet Playlists"
-          description="Retire l'onglet Playlists de la barre de navigation."
+          title="Masquer l’onglet À regarder"
+          description="Retire de la barre de navigation l’onglet des vidéos mises de côté."
           value={hidePlaylistsTab}
           onValueChange={setHidePlaylistsTab}
           colors={colors}

@@ -111,6 +111,7 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.background,
     },
     list: {
+      flexGrow: 1,
       paddingHorizontal: 20,
       paddingTop: 8,
       gap: 18,

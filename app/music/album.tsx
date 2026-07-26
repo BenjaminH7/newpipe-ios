@@ -164,6 +164,7 @@ function createStyles(colors: ColorPalette) {
       justifyContent: 'center',
     },
     list: {
+      flexGrow: 1,
       paddingHorizontal: 20,
     },
   });

@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import type { ListStore } from '@/storage/listStore';
 import {
+  localPlaylistsStore,
   savedAlbumsStore,
   savedPlaylistsStore,
+  type LocalPlaylist,
   type SavedAlbum,
   type SavedPlaylist,
 } from '@/storage/musicCollections';
@@ -37,4 +39,21 @@ export function useSavedPlaylists(): SavedPlaylist[] {
 export function useIsPlaylistSaved(playlistId: string | null): boolean {
   const playlists = useSavedPlaylists();
   return playlistId !== null && playlists.some((p) => p.playlistId === playlistId);
+}
+
+export function useLocalPlaylists(): LocalPlaylist[] {
+  return useListStore(localPlaylistsStore);
+}
+
+/** `loading` évite d'annoncer « playlist introuvable » avant la lecture du
+ *  disque : au montage, le store renvoie une liste vide puis notifie. */
+export function useLocalPlaylist(id: string | null): {
+  playlist: LocalPlaylist | null;
+  loading: boolean;
+} {
+  const playlists = useLocalPlaylists();
+  return {
+    playlist: playlists.find((p) => p.id === id) ?? null,
+    loading: !localPlaylistsStore.isLoaded(),
+  };
 }

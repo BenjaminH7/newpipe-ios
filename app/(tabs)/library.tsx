@@ -13,7 +13,8 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useFollowedArtists } from '@/hooks/useFollowedArtists';
-import { useSavedAlbums, useSavedPlaylists } from '@/hooks/useMusicCollections';
+import { useLocalPlaylists, useSavedAlbums, useSavedPlaylists } from '@/hooks/useMusicCollections';
+import { createLocalPlaylist } from '@/storage/musicCollections';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { usePlayer } from '@/player/PlayerContext';
@@ -40,11 +41,14 @@ export default function LibraryScreen() {
   const albums = useSavedAlbums();
   const artists = useFollowedArtists();
   const savedPlaylists = useSavedPlaylists();
+  const localPlaylists = useLocalPlaylists();
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
 
   const [tab, setTab] = useState<Tab>('songs');
   const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
 
   const matches = useCallback(
     (...fields: (string | null | undefined)[]) => {
@@ -68,10 +72,30 @@ export default function LibraryScreen() {
         return `${albums.length} album${albums.length > 1 ? 's' : ''}`;
       case 'artists':
         return `${artists.length} artiste${artists.length > 1 ? 's' : ''}`;
-      case 'playlists':
-        return `${savedPlaylists.length} playlist${savedPlaylists.length > 1 ? 's' : ''}`;
+      case 'playlists': {
+        const total = localPlaylists.length + savedPlaylists.length;
+        return `${total} playlist${total > 1 ? 's' : ''}`;
+      }
     }
-  }, [tab, tracks.length, albums.length, artists.length, savedPlaylists.length]);
+  }, [
+    tab,
+    tracks.length,
+    albums.length,
+    artists.length,
+    savedPlaylists.length,
+    localPlaylists.length,
+  ]);
+
+  const createPlaylist = useCallback(() => {
+    const name = newName.trim();
+    if (!name) {
+      setCreating(false);
+      return;
+    }
+    createLocalPlaylist(name);
+    setNewName('');
+    setCreating(false);
+  }, [newName]);
 
   return (
     <View style={styles.container}>
@@ -81,7 +105,12 @@ export default function LibraryScreen() {
         {TABS.map((t) => (
           <Pressable
             key={t.key}
-            onPress={() => setTab(t.key)}
+            onPress={() => {
+              setTab(t.key);
+              // Sinon le champ de création rouvrirait, autofocus compris, au
+              // retour sur l'onglet Playlists.
+              setCreating(false);
+            }}
             style={({ pressed }) => [
               styles.tabChip,
               tab === t.key && styles.tabChipActive,
@@ -204,11 +233,49 @@ export default function LibraryScreen() {
           }
           contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            creating ? (
+              <View style={styles.createRow}>
+                <TextInput
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Nom de la playlist"
+                  placeholderTextColor={colors.muted}
+                  style={styles.createInput}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={createPlaylist}
+                />
+                <Pressable hitSlop={8} onPress={createPlaylist} accessibilityLabel="Créer">
+                  <Ionicons name="checkmark-circle" size={30} color={colors.accent} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setCreating(true)}
+                style={({ pressed }) => [styles.createRow, pressed && styles.pressed]}
+              >
+                <View style={styles.createIcon}>
+                  <Ionicons name="add" size={26} color={colors.text} />
+                </View>
+                <Text style={styles.createLabel}>Créer une playlist</Text>
+              </Pressable>
+            )
+          }
           ListEmptyComponent={
             <EmptyView
               icon="list-outline"
-              title="Aucune playlist"
-              message="Crée une playlist avec le bouton +, ou enregistre une playlist YouTube Music depuis sa page."
+              title={
+                localPlaylists.length + savedPlaylists.length === 0
+                  ? 'Aucune playlist'
+                  : 'Aucun résultat'
+              }
+              message={
+                localPlaylists.length + savedPlaylists.length === 0
+                  ? 'Crée une playlist avec le bouton +, ou enregistre une playlist YouTube Music depuis sa page.'
+                  : 'Essaie un autre terme.'
+              }
             />
           }
           renderItem={({ item: entry }) =>
@@ -320,15 +387,30 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingHorizontal: 20,
-      paddingTop: 14,
+      paddingBottom: 10,
+    },
+    // Carré neutre à la taille des pochettes de la liste, pour que « Créer une
+    // playlist » s'aligne sur les rangées qui le suivent.
+    createIcon: {
+      width: 54,
+      height: 54,
+      borderRadius: 4,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    createLabel: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
     },
     createInput: {
       flex: 1,
       backgroundColor: colors.surface,
       borderRadius: 10,
       paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingVertical: 12,
       color: colors.text,
       fontSize: 15,
     },
@@ -352,7 +434,11 @@ function createStyles(colors: ColorPalette) {
       fontWeight: '500',
       paddingVertical: 11,
     },
+    // flexGrow: 1 est indispensable pour les états vides : <EmptyView /> se
+    // centre avec flex: 1, ce qui donne une hauteur nulle si le conteneur de
+    // la liste se dimensionne sur son contenu.
     list: {
+      flexGrow: 1,
       paddingHorizontal: 20,
       paddingTop: 2,
     },
