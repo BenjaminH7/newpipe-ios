@@ -1,207 +1,247 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+// Accueil YouTube Music, calqué sur le HomeScreen de Metrolist : chips de
+// filtrage, carrousels personnalisés servis par InnerTube (FEmusic_home) et
+// raccourcis vers la bibliothèque. Le contenu vient du catalogue en ligne, la
+// lecture passe par le lecteur global de l'app.
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { searchVideos, searchVideosNextPage } from '@/api/youtube';
-import type { VideoSummary } from '@/api/youtube';
-import { searchMusic } from '@/api/ytmusic/client';
-import type { YTArtist } from '@/api/ytmusic/types';
-import { ItemCard } from '@/components/music/ItemCard';
-import { VideoListItem } from '@/components/VideoListItem';
-import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
+import { getMusicHome } from '@/api/ytmusic/client';
+import { songToTrack, songsToTracks } from '@/api/ytmusic/convert';
+import type { HomeChip, MusicHomePage, MusicSection, YTItem, YTSong } from '@/api/ytmusic/types';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { SectionCarousel } from '@/components/music/SectionCarousel';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
+import { useMusicNavigation } from '@/hooks/useMusicNavigation';
+import { useSongMenu } from '@/components/music/SongMenu';
+import { useUnseenReleasesCount } from '@/hooks/useReleasesFeed';
+import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
 
-function dedupeById(items: VideoSummary[]): VideoSummary[] {
-  const seen = new Set<string>();
-  return items.filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)));
-}
+type Status = 'loading' | 'error' | 'ready';
 
-type Status = 'idle' | 'loading' | 'error' | 'ready';
-
-export default function SearchScreen() {
+export default function MusicHomeScreen() {
   const router = useRouter();
-  const { colors, sharedStyles } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { contentBottomPadding } = useBottomOffsets();
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<VideoSummary[]>([]);
-  const [artists, setArtists] = useState<YTArtist[]>([]);
-  const [nextpage, setNextpage] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const activeQuery = useRef('');
+  const { currentTrack, isPlaying, playTrack } = usePlayer();
+  const { openItem } = useMusicNavigation();
+  const { showSongMenu } = useSongMenu();
+  const unseenReleases = useUnseenReleasesCount();
 
-  const runSearch = useCallback(async (q: string) => {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    activeQuery.current = trimmed;
+  const [status, setStatus] = useState<Status>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState<MusicHomePage | null>(null);
+  const [activeChip, setActiveChip] = useState<HomeChip | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const load = useCallback(async (chip: HomeChip | null) => {
     setStatus('loading');
     setError(null);
     try {
-      // La recherche d'artistes ne doit pas faire échouer la recherche vidéo :
-      // en cas d'erreur YouTube Music on affiche simplement les vidéos seules.
-      const [res, artistResults] = await Promise.all([
-        searchVideos(trimmed),
-        searchMusic(trimmed, 'artists')
-          .then((r) => r.items.filter((i): i is YTArtist => i.type === 'artist').slice(0, 10))
-          .catch(() => [] as YTArtist[]),
-      ]);
-      if (activeQuery.current !== trimmed) return; // une recherche plus récente a été lancée entre-temps
-      setResults(dedupeById(res.items));
-      setArtists(artistResults);
-      setNextpage(res.nextpage);
+      const result = await getMusicHome(chip ? { params: chip.params } : undefined);
+      setPage(result);
       setStatus('ready');
     } catch (e) {
-      if (activeQuery.current !== trimmed) return;
-      setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
+      setError(e instanceof Error ? e.message : 'Impossible de charger l’accueil.');
       setStatus('error');
     }
   }, []);
 
+  useEffect(() => {
+    load(null);
+  }, [load]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const result = await getMusicHome(activeChip ? { params: activeChip.params } : undefined);
+      setPage(result);
+      setStatus('ready');
+    } catch {
+      // Rafraîchissement best-effort : on garde le contenu déjà affiché.
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeChip]);
+
+  // Les carrousels suivants arrivent par continuation, comme le scroll infini
+  // de music.youtube.com.
   const loadMore = useCallback(async () => {
-    if (!nextpage || loadingMore || status !== 'ready') return;
+    if (!page?.continuation || loadingMore) return;
     setLoadingMore(true);
     try {
-      const q = activeQuery.current;
-      const res = await searchVideosNextPage(nextpage);
-      if (activeQuery.current !== q) return;
-      setResults((prev) => dedupeById([...prev, ...res.items]));
-      setNextpage(res.nextpage);
+      const next = await getMusicHome({ continuation: page.continuation });
+      setPage((prev) =>
+        prev
+          ? { ...prev, sections: [...prev.sections, ...next.sections], continuation: next.continuation }
+          : next,
+      );
     } catch {
-      // On échoue silencieusement sur la pagination : l'utilisateur garde les résultats déjà chargés.
+      setPage((prev) => (prev ? { ...prev, continuation: null } : prev));
     } finally {
       setLoadingMore(false);
     }
-  }, [nextpage, loadingMore, status]);
+  }, [page?.continuation, loadingMore]);
 
-  // Navigation par browseId : l'écran artiste charge directement le bon
-  // profil, sans repasser par une recherche par nom ambiguë.
-  const openArtistProfile = useCallback(
-    (artist: YTArtist) => {
+  const selectChip = useCallback(
+    (chip: HomeChip | null) => {
+      setActiveChip(chip);
+      load(chip);
+    },
+    [load],
+  );
+
+  const playSong = useCallback(
+    (song: YTSong, queue: YTSong[]) => {
+      playTrack(songToTrack(song), songsToTracks(queue.length > 0 ? queue : [song]));
+    },
+    [playTrack],
+  );
+
+  const openMore = useCallback(
+    (section: MusicSection) => {
+      if (!section.moreBrowseId) return;
       router.push({
-        pathname: '/music/artist',
-        params: { browseId: artist.browseId, name: artist.name },
+        pathname: '/music/browse',
+        params: {
+          browseId: section.moreBrowseId,
+          params: section.moreParams ?? '',
+          title: section.title,
+        },
       });
     },
     [router],
   );
 
+  const handleItem = useCallback((item: YTItem) => openItem(item), [openItem]);
+
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Rechercher"
+        title="Accueil"
         right={
-          <Pressable
-            onPress={() => router.push('/settings')}
-            hitSlop={8}
-            accessibilityLabel="Réglages"
-            style={({ pressed }) => pressed && { opacity: 0.7 }}
-          >
-            <Ionicons name="settings-outline" size={26} color={colors.text} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/music/search')}
+              hitSlop={8}
+              accessibilityLabel="Rechercher"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="search" size={25} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/music/explore')}
+              hitSlop={8}
+              accessibilityLabel="Explorer"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="compass-outline" size={25} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/music/releases')}
+              hitSlop={8}
+              accessibilityLabel="Nouveautés"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="notifications-outline" size={25} color={colors.text} />
+              {unseenReleases > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unseenReleases > 9 ? '9+' : unseenReleases}</Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/history')}
+              hitSlop={8}
+              accessibilityLabel="Historique"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="time-outline" size={25} color={colors.text} />
+            </Pressable>
+          </View>
         }
       />
 
-      <View style={styles.searchBar}>
-        <View style={styles.searchField}>
-          <Pressable onPress={() => runSearch(query)} hitSlop={8}>
-            <Ionicons name="search" size={20} color={colors.muted} />
-          </Pressable>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => runSearch(query)}
-            placeholder="Rechercher des vidéos ou un artiste..."
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-        </View>
-      </View>
-
-      {status === 'idle' && (
-        <EmptyView
-          icon="search-outline"
-          title="Trouve ta prochaine vidéo"
-          message="Cherche des vidéos ou un artiste pour commencer."
-        />
-      )}
-      {status === 'loading' && <LoadingView label="Recherche en cours..." />}
-      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => runSearch(query)} />}
-      {status === 'ready' && results.length === 0 && artists.length === 0 && (
-        <EmptyView icon="search-outline" title="Aucun résultat" message="Essaie avec d'autres mots-clés." />
-      )}
-      {status === 'ready' && (results.length > 0 || artists.length > 0) && (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            artists.length > 0 ? (
-              <View style={styles.artistsSection}>
-                <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Artistes</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.artistsList}
-                >
-                  {artists.map((artist) => (
-                    <View key={artist.browseId} style={styles.artistCardWrap}>
-                      <ItemCard item={artist} width={112} onPress={() => openArtistProfile(artist)} />
-                    </View>
-                  ))}
-                </ScrollView>
-                {results.length > 0 && (
-                  <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Vidéos</Text>
-                )}
-              </View>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <VideoListItem
-              video={item}
-              onPress={() =>
-                router.push({
-                  pathname: '/video/[id]',
-                  params: {
-                    id: item.id,
-                    title: item.title,
-                    thumbnail: item.thumbnail,
-                    channelId: item.channelId ?? '',
-                    channelName: item.channelName,
-                    channelAvatar: item.channelAvatar ?? '',
-                    uploadedDate: item.uploadedDate ?? '',
-                    views: String(item.views),
-                    duration: String(item.duration),
-                  },
-                })
-              }
+      {page && page.chips.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+          style={styles.chipsScroll}
+        >
+          <Chip label="Tout" active={activeChip === null} onPress={() => selectChip(null)} />
+          {page.chips.map((chip) => (
+            <Chip
+              key={chip.params}
+              label={chip.title}
+              active={activeChip?.params === chip.params}
+              onPress={() => selectChip(chip)}
             />
-          )}
-          onEndReachedThreshold={0.5}
-          onEndReached={loadMore}
-          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} /> : null}
-        />
+          ))}
+        </ScrollView>
+      )}
+
+      {status === 'loading' && <LoadingView label="Chargement de YouTube Music..." />}
+      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(activeChip)} />}
+      {status === 'ready' && page && (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomPadding }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.muted} />
+          }
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 600) loadMore();
+          }}
+          scrollEventThrottle={200}
+        >
+          {page.sections.map((section, index) => (
+            <SectionCarousel
+              key={`${section.title}-${index}`}
+              section={section}
+              currentTrackId={currentTrack?.id}
+              isPlaying={isPlaying}
+              onItemPress={handleItem}
+              onSongPress={playSong}
+              onSongMenu={showSongMenu}
+              onMore={section.moreBrowseId ? () => openMore(section) : undefined}
+            />
+          ))}
+          {loadingMore && <ActivityIndicator color={colors.muted} style={styles.moreLoader} />}
+        </ScrollView>
       )}
 
       <MiniPlayer />
     </View>
+  );
+}
+
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
+    >
+      <Text style={[styles.chipLabel, active && styles.chipLabelActive]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -211,44 +251,62 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    searchBar: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 12,
+    pressed: {
+      opacity: 0.7,
     },
-    // Champ de recherche façon Spotify : rectangle arrondi (pas de pilule),
-    // un peu plus haut, texte plus affirmé.
-    searchField: {
+    headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      backgroundColor: colors.surface,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      gap: 18,
     },
-    searchInput: {
-      flex: 1,
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '500',
-      paddingVertical: 12,
+    badge: {
+      position: 'absolute',
+      top: -4,
+      right: -6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    list: {
-      paddingHorizontal: 20,
-      paddingTop: 4,
+    badgeText: {
+      color: colors.accentText,
+      fontSize: 10,
+      fontWeight: '800',
     },
-    artistsSection: {
+    chipsScroll: {
+      flexGrow: 0,
       marginBottom: 4,
     },
-    sectionLabel: {
-      marginTop: 8,
-      marginBottom: 12,
+    chipsRow: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      gap: 8,
     },
-    artistsList: {
-      paddingBottom: 12,
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
     },
-    artistCardWrap: {
-      marginRight: 16,
+    chipActive: {
+      backgroundColor: colors.text,
+    },
+    chipLabel: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    chipLabelActive: {
+      color: colors.background,
+    },
+    scrollContent: {
+      paddingTop: 10,
+    },
+    moreLoader: {
+      marginVertical: 20,
     },
   });
 }
