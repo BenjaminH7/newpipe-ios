@@ -35,17 +35,15 @@ export function ArtistTrackRow({
           <Text style={sharedStyles.mutedText}>{rank}</Text>
         )}
       </View>
-      <Image source={{ uri: track.albumCoverUrl }} style={styles.cover} contentFit="cover" />
-      <View style={styles.info}>
-        <Text style={[sharedStyles.text, styles.title, isActive && { color: colors.accent }]} numberOfLines={1}>
-          {track.title}
+      <Image source={{ uri: track.albumCoverUrl }} style={[styles.cover, sharedStyles.thumbnail]} contentFit="cover" />
+      <Text style={[sharedStyles.text, styles.title, isActive && { color: colors.accent }]} numberOfLines={1}>
+        {track.title}
+      </Text>
+      {track.duration >= 0 && (
+        <Text style={sharedStyles.mutedText} numberOfLines={1}>
+          {formatDuration(track.duration)}
         </Text>
-        {track.duration >= 0 && (
-          <Text style={sharedStyles.mutedText} numberOfLines={1}>
-            {formatDuration(track.duration)}
-          </Text>
-        )}
-      </View>
+      )}
     </Pressable>
   );
 }
@@ -56,7 +54,7 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       paddingVertical: 8,
     },
     pressed: {
@@ -69,14 +67,9 @@ function createStyles(colors: ColorPalette) {
     cover: {
       width: 44,
       height: 44,
-      borderRadius: 4,
-      backgroundColor: colors.surface,
-    },
-    info: {
-      flex: 1,
-      gap: 2,
     },
     title: {
+      flex: 1,
       fontSize: 15,
       fontWeight: '600',
     },

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { getArtistTopTracks, searchArtist, type DeezerArtist, type DeezerTrack } from '@/api/deezer';
 import { resolveYoutubeTrack } from '@/api/musicMatch';
 import type { VideoSummary } from '@/api/youtube';
@@ -20,6 +23,7 @@ type Resolution = VideoSummary | null | 'pending';
 
 const TRACKS_LIMIT = 25;
 const RESOLVE_CONCURRENCY = 3;
+const PLAY_BUTTON_SIZE = 58;
 
 function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrack {
   return {
@@ -38,9 +42,11 @@ function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrack {
 
 export default function ArtistScreen() {
   const { artist: artistName } = useLocalSearchParams<SearchParams>();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { currentTrack, isPlaying, playTrack } = usePlayer();
+  const { currentTrack, isPlaying, shuffle, playTrack, toggleShuffle } = usePlayer();
 
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -127,8 +133,21 @@ export default function ArtistScreen() {
     [tracks, playTrack],
   );
 
+  const handlePlayAll = useCallback(() => {
+    if (tracks.length > 0) handlePressTrack(tracks[0]);
+  }, [tracks, handlePressTrack]);
+
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
+      <Pressable
+        hitSlop={8}
+        onPress={() => router.back()}
+        style={[styles.backButton, { top: insets.top + 8 }]}
+      >
+        <Ionicons name="chevron-back" size={24} color="#ffffff" />
+      </Pressable>
+
       {status === 'loading' && <LoadingView label="Chargement de l'artiste..." />}
       {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(artistName)} />}
       {status === 'ready' && (
@@ -136,24 +155,53 @@ export default function ArtistScreen() {
           data={tracks}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.header}>
-              {artistInfo?.pictureUrl && (
-                <Image source={{ uri: artistInfo.pictureUrl }} style={styles.headerImage} contentFit="cover" />
-              )}
-              <LinearGradient
-                colors={['transparent', colors.background]}
-                style={styles.headerGradient}
-                pointerEvents="none"
-              />
-              <View style={styles.headerTextWrap}>
-                <Text style={styles.headerName} numberOfLines={2}>
-                  {artistInfo?.name ?? artistName}
-                </Text>
-                {artistInfo && artistInfo.fansCount >= 0 && (
-                  <Text style={styles.headerFans}>{formatCount(artistInfo.fansCount)} auditeurs</Text>
+              <View style={styles.heroWrap}>
+                {artistInfo?.pictureUrl ? (
+                  <Image source={{ uri: artistInfo.pictureUrl }} style={styles.heroImage} contentFit="cover" />
+                ) : (
+                  <View style={[styles.heroImage, styles.heroPlaceholder]}>
+                    <Ionicons name="person" size={72} color={colors.muted} />
+                  </View>
                 )}
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.55)', 'transparent']}
+                  style={styles.heroTopScrim}
+                  pointerEvents="none"
+                />
+                <LinearGradient
+                  colors={['transparent', colors.background]}
+                  locations={[0.35, 1]}
+                  style={styles.heroBottomGradient}
+                  pointerEvents="none"
+                />
+                <View style={styles.heroTextWrap}>
+                  <Text style={styles.heroKicker}>Artiste</Text>
+                  <Text style={styles.heroName} numberOfLines={2}>
+                    {artistInfo?.name ?? artistName}
+                  </Text>
+                  {artistInfo && artistInfo.fansCount >= 0 && (
+                    <Text style={styles.heroFans}>{formatCount(artistInfo.fansCount)} auditeurs</Text>
+                  )}
+                </View>
               </View>
+
+              <View style={styles.actionsRow}>
+                <Pressable hitSlop={12} onPress={toggleShuffle} style={styles.shuffleButton}>
+                  <Ionicons name="shuffle" size={26} color={shuffle ? colors.accent : colors.text} />
+                </Pressable>
+                <Pressable
+                  hitSlop={8}
+                  onPress={handlePlayAll}
+                  disabled={tracks.length === 0}
+                  style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+                >
+                  <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
+                </Pressable>
+              </View>
+
               <Text style={[sharedStyles.text, styles.sectionLabel]}>Titres populaires</Text>
             </View>
           }
@@ -186,50 +234,118 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    backButton: {
+      position: 'absolute',
+      left: 12,
+      zIndex: 20,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    },
     list: {
       paddingBottom: 24,
     },
     header: {
       marginBottom: 8,
     },
-    headerImage: {
+    heroWrap: {
       width: '100%',
-      aspectRatio: 1.15,
+      aspectRatio: 1.05,
       backgroundColor: colors.surface,
     },
-    headerGradient: {
+    heroImage: {
+      width: '100%',
+      height: '100%',
+    },
+    heroPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroTopScrim: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 120,
+    },
+    heroBottomGradient: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      height: '60%',
+      height: '75%',
     },
-    headerTextWrap: {
+    heroTextWrap: {
       position: 'absolute',
-      left: 16,
-      right: 16,
-      bottom: 16,
+      left: 20,
+      right: 20,
+      bottom: 20,
     },
-    headerName: {
+    heroKicker: {
+      color: 'rgba(255,255,255,0.85)',
+      fontSize: 13,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 6,
+    },
+    heroName: {
       color: '#ffffff',
-      fontSize: 34,
+      fontSize: 36,
       fontWeight: '800',
+      lineHeight: 40,
       textShadowColor: 'rgba(0,0,0,0.4)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
     },
-    headerFans: {
+    heroFans: {
       color: 'rgba(255,255,255,0.85)',
       fontSize: 13,
       fontWeight: '600',
-      marginTop: 4,
+      marginTop: 6,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      marginTop: -(PLAY_BUTTON_SIZE / 2),
+      marginBottom: 8,
+    },
+    shuffleButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    playButton: {
+      width: PLAY_BUTTON_SIZE,
+      height: PLAY_BUTTON_SIZE,
+      borderRadius: PLAY_BUTTON_SIZE / 2,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    playButtonPressed: {
+      opacity: 0.85,
+    },
+    playIcon: {
+      marginLeft: 3,
     },
     sectionLabel: {
-      fontSize: 18,
-      fontWeight: '700',
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 4,
+      fontSize: 20,
+      fontWeight: '800',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 8,
     },
   });
 }
