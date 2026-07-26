@@ -4,8 +4,10 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   FlatList,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -42,6 +44,11 @@ export default function MusicPlayerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  // L'écran est présenté en modale : sur iOS la feuille s'arrête déjà sous la
+  // barre de statut, donc ajouter insets.top créait un grand vide au-dessus
+  // de "Lecture en cours". Sur Android la modale est plein écran, l'inset
+  // reste nécessaire.
+  const topPadding = Platform.OS === 'ios' ? 12 : insets.top + 12;
   const {
     currentTrack,
     isPlaying,
@@ -66,7 +73,7 @@ export default function MusicPlayerScreen() {
   const isInLibrary = useIsInMusicLibrary(currentTrack?.id ?? '');
   const toggleTrackInLibrary = useToggleTrackInLibrary();
   const [musicQuotaMinutes] = useMusicQuotaMinutes();
-  const [translateLyrics, setTranslateLyrics] = useTranslateLyrics();
+  const [translateLyrics] = useTranslateLyrics();
   const musicQuotaExceeded = useMusicQuotaExceeded();
 
   const [showLyrics, setShowLyrics] = useState(false);
@@ -99,8 +106,7 @@ export default function MusicPlayerScreen() {
 
   // Traduction en français des paroles, chargée une fois qu'elles sont
   // disponibles (synchronisées ligne par ligne, ou en bloc pour le texte brut).
-  // Contrôlée par le réglage "Traduire les paroles" (activable aussi via
-  // l'icône dédiée du lecteur).
+  // Contrôlée uniquement par le réglage "Traduire les paroles" des réglages.
   useEffect(() => {
     if (!lyrics || !translateLyrics) return;
     let cancelled = false;
@@ -196,10 +202,15 @@ export default function MusicPlayerScreen() {
   const seekRatioRef = useRef(0);
   const durationRef = useRef(duration);
   const seekToRef = useRef(seekTo);
-  // Comme sur Spotify : le curseur (le petit rond) reste invisible tant qu'on
-  // n'interagit pas avec la barre, et apparaît en un fondu/zoom léger dès
-  // qu'on pose le doigt dessus pour glisser dans la piste.
+  // Comme sur Spotify mobile : le curseur (le petit rond) est toujours
+  // visible et grossit légèrement pendant qu'on glisse dans la piste.
   const thumbAnim = useRef(new Animated.Value(0)).current;
+  // Progression fluide : le player ne rapporte sa position que toutes les
+  // 0,5 s, ce qui faisait avancer la barre par à-coups. On anime donc une
+  // valeur [0..1] sur le driver natif : à chaque tick on la recale sur la
+  // position réelle puis on la fait glisser linéairement vers la fin de
+  // piste — mouvement continu, dérive auto-corrigée au tick suivant.
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     trackWidthRef.current = trackWidth;
@@ -211,18 +222,47 @@ export default function MusicPlayerScreen() {
     seekToRef.current = seekTo;
   }, [seekTo]);
 
-  const updateRatioFromPageX = useCallback((pageX: number) => {
-    if (trackWidthRef.current === 0) return;
-    const ratio = Math.min(1, Math.max(0, (pageX - trackPageXRef.current) / trackWidthRef.current));
-    seekRatioRef.current = ratio;
-    setSeekRatio(ratio);
-  }, []);
+  useEffect(() => {
+    if (isSeeking) return; // le doigt pilote la barre (setValue direct)
+    if (duration <= 0) {
+      progressAnim.setValue(0);
+      return;
+    }
+    progressAnim.stopAnimation();
+    progressAnim.setValue(Math.min(1, Math.max(0, position / duration)));
+    if (!isPlaying) return;
+    const animation = Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: Math.max(0, (duration - position) * 1000),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [position, duration, isPlaying, isSeeking, progressAnim]);
+
+  const updateRatioFromPageX = useCallback(
+    (pageX: number) => {
+      if (trackWidthRef.current === 0) return;
+      const ratio = Math.min(1, Math.max(0, (pageX - trackPageXRef.current) / trackWidthRef.current));
+      seekRatioRef.current = ratio;
+      setSeekRatio(ratio);
+      progressAnim.setValue(ratio);
+    },
+    [progressAnim],
+  );
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => durationRef.current > 0,
       onMoveShouldSetPanResponder: () => durationRef.current > 0,
       onPanResponderGrant: (e: GestureResponderEvent) => {
+        // Origine X de la barre recalculée à chaque prise de doigt : les
+        // enfants étant en pointerEvents="none", locationX est toujours
+        // relatif à la zone tactile — fiable même si l'écran a bougé depuis
+        // la mesure du layout (modale qui glisse, rotation…).
+        trackPageXRef.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+        progressAnim.stopAnimation();
         setIsSeeking(true);
         updateRatioFromPageX(e.nativeEvent.pageX);
         Animated.timing(thumbAnim, { toValue: 1, duration: 120, useNativeDriver: true }).start();
@@ -265,7 +305,7 @@ export default function MusicPlayerScreen() {
 
   if (musicQuotaExceeded) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom + 24 }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
           <Ionicons name="chevron-down" size={28} color={colors.text} />
         </Pressable>
@@ -278,7 +318,7 @@ export default function MusicPlayerScreen() {
 
   if (!currentTrack) {
     return (
-      <View style={[styles.empty, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.empty, { paddingTop: topPadding }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
           <Ionicons name="chevron-down" size={26} color={colors.text} />
         </Pressable>
@@ -287,8 +327,6 @@ export default function MusicPlayerScreen() {
     );
   }
 
-  const ratio = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-  const displayRatio = isSeeking ? seekRatio : ratio;
   const displayPosition = isSeeking ? seekRatio * duration : position;
 
   return (
@@ -306,7 +344,7 @@ export default function MusicPlayerScreen() {
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
-      <View style={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.content, { paddingTop: topPadding, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.topRow}>
           <Text style={styles.topRowLabel} numberOfLines={1}>
             {radioEnabled ? 'Radio' : 'Lecture en cours'}
@@ -318,15 +356,6 @@ export default function MusicPlayerScreen() {
             <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={8}>
               <Ionicons name={showLyrics ? 'mic' : 'mic-outline'} size={22} color={showLyrics ? colors.accent : '#ffffff'} />
             </Pressable>
-            {showLyrics && (
-              <Pressable onPress={() => setTranslateLyrics(!translateLyrics)} hitSlop={8}>
-                <Ionicons
-                  name={translateLyrics ? 'language' : 'language-outline'}
-                  size={22}
-                  color={translateLyrics ? colors.accent : '#ffffff'}
-                />
-              </Pressable>
-            )}
             <Pressable onPress={toggleRadio} hitSlop={8} disabled={radioLoading}>
               {radioLoading ? (
                 <ActivityIndicator size="small" color={colors.accent} />
@@ -422,19 +451,46 @@ export default function MusicPlayerScreen() {
           onLayout={handleTrackLayout}
           {...panResponder.panHandlers}
         >
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${displayRatio * 100}%` }]} />
+          {/* Remplissage et curseur déplacés en translateX (driver natif) plutôt
+              qu'en width/left : la barre glisse à 60 fps sans repasser par JS. */}
+          <View style={styles.progressTrack} pointerEvents="none">
+            {trackWidth > 0 && (
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    transform: [
+                      {
+                        translateX: progressAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-trackWidth, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            )}
           </View>
-          <Animated.View
-            style={[
-              styles.progressThumb,
-              {
-                left: `${displayRatio * 100}%`,
-                opacity: thumbAnim,
-                transform: [{ scale: thumbAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }],
-              },
-            ]}
-          />
+          {trackWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.progressThumb,
+                {
+                  transform: [
+                    {
+                      translateX: progressAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, trackWidth],
+                      }),
+                    },
+                    { scale: thumbAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.4] }) },
+                  ],
+                },
+              ]}
+            />
+          )}
         </View>
         <View style={styles.timeRow}>
           <Text style={styles.timeText}>{formatDuration(displayPosition)}</Text>
@@ -623,18 +679,24 @@ function createStyles(colors: ColorPalette) {
       overflow: 'hidden',
     },
     progressFill: {
-      height: '100%',
-      backgroundColor: colors.accent,
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 2,
+      backgroundColor: '#ffffff',
     },
     progressThumb: {
       position: 'absolute',
       top: '50%',
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      marginTop: -7,
-      marginLeft: -7,
-      backgroundColor: colors.accent,
+      left: -6,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginTop: -6,
+      backgroundColor: '#ffffff',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.3,
+      shadowRadius: 2,
+      elevation: 2,
     },
     timeRow: {
       flexDirection: 'row',

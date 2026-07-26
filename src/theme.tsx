@@ -58,8 +58,8 @@ function createSharedStyles(colors: ColorPalette) {
     },
     button: {
       backgroundColor: colors.accent,
-      borderRadius: 12,
-      paddingHorizontal: 16,
+      borderRadius: 999,
+      paddingHorizontal: 20,
       paddingVertical: 10,
     },
     buttonText: {
@@ -78,6 +78,12 @@ function createSharedStyles(colors: ColorPalette) {
     thumbnail: {
       backgroundColor: colors.surface,
       borderRadius: 12,
+    },
+    // Petites pochettes carrées (rangées de titres, mini-player) : rayon plus
+    // serré que les miniatures 16:9, comme sur Spotify.
+    coverSmall: {
+      backgroundColor: colors.surface,
+      borderRadius: 6,
     },
   });
 }

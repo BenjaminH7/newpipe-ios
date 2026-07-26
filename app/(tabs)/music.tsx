@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { usePlayer } from '@/player/PlayerContext';
-import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
@@ -19,21 +19,11 @@ export default function MusicScreen() {
   const { currentTrack, isPlaying, playTrack } = usePlayer();
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
+  const { contentBottomPadding } = useBottomOffsets();
   const [query, setQuery] = useState('');
 
   const openArtist = (artist: string) => {
     router.push({ pathname: '/music/artist', params: { artist } });
-  };
-
-  const confirmRemoveTrack = (track: MusicTrack) => {
-    Alert.alert(
-      'Supprimer ce titre ?',
-      `Veux-tu vraiment supprimer "${track.title}" de ta bibliothèque musicale ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => removeTrack(track.id) },
-      ],
-    );
   };
 
   const filtered = useMemo(() => {
@@ -59,7 +49,7 @@ export default function MusicScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Rechercher dans ta musique..."
+            placeholder="Rechercher..."
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
             returnKeyType="search"
@@ -70,14 +60,18 @@ export default function MusicScreen() {
       </View>
 
       {tracks.length === 0 ? (
-        <EmptyView message="Aucune musique. Appuie sur l'icône note de musique d'une vidéo pour l'ajouter et l'écouter hors-ligne." />
+        <EmptyView
+          icon="musical-notes-outline"
+          title="Ta bibliothèque est vide"
+          message="Appuie sur l'icône note de musique d'une vidéo pour l'ajouter et l'écouter hors-ligne."
+        />
       ) : filtered.length === 0 ? (
         <EmptyView message="Aucun résultat." />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <MusicTrackItem
@@ -86,7 +80,7 @@ export default function MusicScreen() {
               isPlaying={isPlaying}
               onPress={() => playTrack(item, filtered)}
               onArtistPress={() => openArtist(item.artist)}
-              onRemove={() => confirmRemoveTrack(item)}
+              onRemove={() => removeTrack(item.id)}
               onRetryDownload={() => retryDownload(item.id)}
             />
           )}
@@ -128,7 +122,6 @@ function createStyles(colors: ColorPalette) {
     list: {
       paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 12,
     },
   });
 }

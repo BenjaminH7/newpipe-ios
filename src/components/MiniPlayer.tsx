@@ -3,30 +3,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
 
 /**
- * Barre "en cours de lecture" façon Spotify : rendue en dernier enfant de
- * chaque écran d'onglet (juste au-dessus de la tab bar par simple flexbox,
- * pas de calcul de hauteur/inset). Ne rend rien tant qu'aucune piste n'est
- * chargée.
+ * Barre "en cours de lecture" façon Spotify : carte flottante arrondie posée
+ * en absolu au-dessus de la tab bar translucide (le contenu défile dessous),
+ * avec un fin liseré de progression en bas. Ne rend rien tant qu'aucune piste
+ * n'est chargée.
  */
 export function MiniPlayer() {
   const router = useRouter();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { currentTrack, isPlaying, isBuffering, togglePlay, playNext } = usePlayer();
+  const { currentTrack, isPlaying, isBuffering, position, duration, togglePlay, playNext } =
+    usePlayer();
   const musicQuotaExceeded = useMusicQuotaExceeded();
+  const { miniPlayerBottom } = useBottomOffsets();
 
   if (!currentTrack || musicQuotaExceeded) return null;
 
+  const ratio = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
+
   return (
-    <Pressable style={styles.container} onPress={() => router.push('/music/player')}>
+    <Pressable
+      style={({ pressed }) => [styles.container, { bottom: miniPlayerBottom }, pressed && styles.pressed]}
+      onPress={() => router.push('/music/player')}
+    >
       <Image
         source={{ uri: currentTrack.coverArtUrl }}
-        style={[styles.cover, sharedStyles.thumbnail]}
+        style={[styles.cover, sharedStyles.coverSmall]}
         contentFit="cover"
       />
       <View style={styles.info}>
@@ -48,6 +56,10 @@ export function MiniPlayer() {
       <Pressable hitSlop={8} onPress={playNext} style={styles.button}>
         <Ionicons name="play-skip-forward" size={20} color={colors.text} />
       </Pressable>
+
+      <View style={styles.progressTrack} pointerEvents="none">
+        <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
+      </View>
     </Pressable>
   );
 }
@@ -55,14 +67,24 @@ export function MiniPlayer() {
 function createStyles(colors: ColorPalette) {
   return StyleSheet.create({
     container: {
+      position: 'absolute',
+      left: 8,
+      right: 8,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      paddingHorizontal: 10,
+      paddingHorizontal: 8,
       paddingVertical: 8,
       backgroundColor: colors.surface,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    pressed: {
+      opacity: 0.9,
     },
     cover: {
       width: 40,
@@ -81,6 +103,20 @@ function createStyles(colors: ColorPalette) {
       height: 32,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    progressTrack: {
+      position: 'absolute',
+      left: 10,
+      right: 10,
+      bottom: 2,
+      height: 2,
+      borderRadius: 1,
+      backgroundColor: colors.border,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: colors.accent,
     },
   });
 }

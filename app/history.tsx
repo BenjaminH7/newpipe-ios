@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { EmptyView } from '@/components/StatusView';
 import { HistoryItem } from '@/components/HistoryItem';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useClearHistory, useHistory, useRemoveHistoryEntry } from '@/hooks/useHistory';
 import { usePlayer } from '@/player/PlayerContext';
 import type { HistoryEntry } from '@/storage/history';
@@ -21,6 +22,7 @@ export default function HistoryScreen() {
   const removeEntry = useRemoveHistoryEntry();
   const clearAll = useClearHistory();
   const { playTrack } = usePlayer();
+  const { contentBottomPadding } = useBottomOffsets();
 
   const confirmClearAll = () => {
     Alert.alert("Effacer tout l'historique ?", 'Cette action est irréversible.', [
@@ -53,18 +55,30 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerRight:
+            entries.length > 0
+              ? () => (
+                  <Pressable onPress={confirmClearAll} hitSlop={8}>
+                    <Text style={styles.clearButtonText}>Tout effacer</Text>
+                  </Pressable>
+                )
+              : undefined,
+        }}
+      />
       {entries.length === 0 ? (
-        <EmptyView message="Aucun historique pour l'instant. Les vidéos regardées et les musiques écoutées apparaîtront ici." />
+        <EmptyView
+          icon="time-outline"
+          title="Aucun historique"
+          message="Les vidéos regardées et les musiques écoutées apparaîtront ici."
+        />
       ) : (
         <FlatList
           data={entries}
           keyExtractor={(item) => `${item.kind}:${entryId(item)}`}
-          contentContainerStyle={styles.list}
-          ListHeaderComponent={
-            <Pressable onPress={confirmClearAll} style={styles.clearButton} hitSlop={8}>
-              <Text style={styles.clearButtonText}>Tout effacer</Text>
-            </Pressable>
-          }
+          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <HistoryItem
               entry={item}
@@ -87,13 +101,8 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.background,
     },
     list: {
-      paddingHorizontal: 12,
+      paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 24,
-    },
-    clearButton: {
-      alignSelf: 'flex-end',
-      paddingVertical: 8,
     },
     clearButtonText: {
       color: colors.accent,

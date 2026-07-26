@@ -5,6 +5,7 @@ import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useSavedVideos } from '@/hooks/useSavedVideos';
 import { useTheme, type ColorPalette } from '@/theme';
 
@@ -13,6 +14,7 @@ export default function PlaylistsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const videos = useSavedVideos();
+  const { contentBottomPadding } = useBottomOffsets();
 
   return (
     <View style={styles.container}>
@@ -24,12 +26,16 @@ export default function PlaylistsScreen() {
       />
 
       {videos.length === 0 ? (
-        <EmptyView message="Aucune vidéo enregistrée. Appuie sur l'icône signet d'une vidéo pour la regarder plus tard." />
+        <EmptyView
+          icon="bookmark-outline"
+          title="Rien à regarder plus tard"
+          message="Appuie sur l'icône signet d'une vidéo pour la retrouver ici."
+        />
       ) : (
         <FlatList
           data={videos}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <VideoListItem
@@ -69,7 +75,6 @@ function createStyles(colors: ColorPalette) {
     list: {
       paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 24,
     },
   });
 }

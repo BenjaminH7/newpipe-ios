@@ -1,5 +1,9 @@
+import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme';
+
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export function LoadingView({ label }: { label?: string }) {
   const { colors, sharedStyles } = useTheme();
@@ -12,12 +16,16 @@ export function LoadingView({ label }: { label?: string }) {
 }
 
 export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  const { sharedStyles } = useTheme();
+  const { colors, sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
-      <Text style={[sharedStyles.text, styles.errorText]}>{message}</Text>
+      <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+      <Text style={[sharedStyles.text, styles.message]}>{message}</Text>
       {onRetry ? (
-        <Pressable style={sharedStyles.button} onPress={onRetry}>
+        <Pressable
+          style={({ pressed }) => [sharedStyles.button, styles.retryButton, pressed && styles.pressed]}
+          onPress={onRetry}
+        >
           <Text style={sharedStyles.buttonText}>Réessayer</Text>
         </Pressable>
       ) : null}
@@ -25,11 +33,24 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
-export function EmptyView({ message }: { message: string }) {
-  const { sharedStyles } = useTheme();
+// État vide façon Spotify : icône discrète, titre affirmé, explication en
+// dessous. `title` et `icon` optionnels pour les cas mineurs (filtre sans
+// résultat) où un simple message suffit.
+export function EmptyView({
+  icon,
+  title,
+  message,
+}: {
+  icon?: IconName;
+  title?: string;
+  message: string;
+}) {
+  const { colors, sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
-      <Text style={sharedStyles.mutedText}>{message}</Text>
+      {icon ? <Ionicons name={icon} size={40} color={colors.muted} /> : null}
+      {title ? <Text style={[sharedStyles.text, styles.title]}>{title}</Text> : null}
+      <Text style={[sharedStyles.mutedText, styles.message]}>{message}</Text>
     </View>
   );
 }
@@ -39,11 +60,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    gap: 12,
+    padding: 32,
+    gap: 8,
   },
-  errorText: {
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
     textAlign: 'center',
-    fontSize: 15,
+    marginTop: 4,
+  },
+  message: {
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+  retryButton: {
+    marginTop: 8,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

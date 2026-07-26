@@ -121,6 +121,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // être faussé par un changement de piste ou un retour d'arrière-plan.
   const quotaTickRef = useRef<number | null>(null);
 
+  // Seek en attente : après `player.currentTime = x`, le player continue
+  // d'émettre quelques timeUpdate avec l'ancienne position tant que le seek
+  // n'est pas effectif (flux distant : jusqu'à ~1 s). Sans ce garde-fou, la
+  // barre de progression saute en arrière puis revient — le "snap-back"
+  // classique. On ignore donc les positions périmées jusqu'à ce que le player
+  // ait rejoint la cible (avec une échéance de secours si le seek échoue).
+  const pendingSeekRef = useRef<{ target: number; until: number } | null>(null);
+
   // Cache les résolutions de flux en cours/terminées par identifiant de
   // piste. Sert à la fois à dédoublonner les appels concurrents et à
   // préparer le flux de la piste suivante pendant que la piste courante
@@ -178,6 +186,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       quotaTickRef.current = null;
+      pendingSeekRef.current = null;
       setCurrentTrack(track);
       setIsBuffering(true);
       setPosition(0);
@@ -292,30 +301,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const playNext = useCallback(() => stepQueue(1), [stepQueue]);
 
+  const seekTo = useCallback(
+    (seconds: number) => {
+      pendingSeekRef.current = { target: seconds, until: Date.now() + 3000 };
+      player.currentTime = seconds;
+      setPosition(seconds);
+    },
+    [player],
+  );
+
   // Comme Spotify : "précédent" redémarre la piste courante si on est déjà
   // un peu avancé dedans, sinon passe vraiment à la piste précédente.
   const playPrevious = useCallback(() => {
     if (positionRef.current > 3) {
-      player.currentTime = 0;
-      setPosition(0);
+      seekTo(0);
       return;
     }
     stepQueue(-1);
-  }, [player, stepQueue]);
+  }, [seekTo, stepQueue]);
 
   const togglePlay = useCallback(() => {
     if (!currentTrackRef.current) return;
     if (player.playing) player.pause();
     else if (!musicQuotaExceededRef.current) player.play();
   }, [player]);
-
-  const seekTo = useCallback(
-    (seconds: number) => {
-      player.currentTime = seconds;
-      setPosition(seconds);
-    },
-    [player],
-  );
 
   const toggleShuffle = useCallback(() => setShuffle((v) => !v), []);
   const cycleRepeat = useCallback(
@@ -362,7 +371,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlaying(playing);
     });
     const timeSub = player.addListener('timeUpdate', ({ currentTime }) => {
-      setPosition(currentTime);
+      const pending = pendingSeekRef.current;
+      if (pending) {
+        if (Math.abs(currentTime - pending.target) < 1 || Date.now() > pending.until) {
+          // Le player a rejoint la cible (ou le seek a expiré) : on reprend
+          // le suivi normal de la position.
+          pendingSeekRef.current = null;
+          setPosition(currentTime);
+        }
+        // Sinon : tick périmé d'avant-seek, on garde la position affichée
+        // sur la cible du seek (le décompte du quota, lui, continue).
+      } else {
+        setPosition(currentTime);
+      }
       if (player.duration > 0) setDuration(player.duration);
 
       const now = Date.now();

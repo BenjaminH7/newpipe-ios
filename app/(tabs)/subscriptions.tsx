@@ -9,6 +9,7 @@ import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useSubscriptions, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
 import type { SubscribedChannel } from '@/storage/subscriptions';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -36,6 +37,7 @@ export default function SubscriptionsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const channels = useSubscriptions();
   const toggleSubscription = useToggleChannelSubscription();
+  const { contentBottomPadding } = useBottomOffsets();
   const [status, setStatus] = useState<Status>('loading');
   const [feed, setFeed] = useState<VideoSummary[]>([]);
 
@@ -82,7 +84,11 @@ export default function SubscriptionsScreen() {
       />
 
       {channels.length === 0 ? (
-        <EmptyView message="Aucun abonnement. Abonne-toi à une chaîne depuis une vidéo pour retrouver ses nouveautés ici." />
+        <EmptyView
+          icon="people-outline"
+          title="Aucun abonnement"
+          message="Abonne-toi à une chaîne depuis une vidéo pour retrouver ses nouveautés ici."
+        />
       ) : (
         <>
           <ScrollView
@@ -127,7 +133,7 @@ export default function SubscriptionsScreen() {
             <FlatList
               data={feed}
               keyExtractor={(item, index) => `${item.id}-${index}`}
-              contentContainerStyle={styles.list}
+              contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
               showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl
@@ -218,7 +224,6 @@ function createStyles(colors: ColorPalette) {
     list: {
       paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 24,
     },
   });
 }

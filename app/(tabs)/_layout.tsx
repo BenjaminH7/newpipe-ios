@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useHideSubscriptionsTab } from '@/hooks/useSettings';
 import { useTheme } from '@/theme';
 
 // Tab bar façon Spotify : pas de header natif (chaque écran affiche son
-// ScreenHeader), pas de bordure haute, onglet actif dans la couleur du texte
-// plutôt qu'en accent.
+// ScreenHeader), onglet actif dans la couleur du texte plutôt qu'en accent,
+// et effet verre : barre translucide posée en absolu, le contenu défile
+// dessous à travers un flou natif (BlurView). Android n'a pas de flou natif
+// fiable en Expo Go : on retombe sur un fond quasi opaque.
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const [hideSubscriptionsTab] = useHideSubscriptionsTab();
 
   return (
@@ -16,8 +20,25 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.background, borderTopWidth: 0, elevation: 0 },
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+        },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarBackground: () =>
+          Platform.OS === 'ios' ? (
+            <BlurView
+              tint={scheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
+              intensity={90}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : (
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background, opacity: 0.97 }]}
+            />
+          ),
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

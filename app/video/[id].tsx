@@ -365,7 +365,7 @@ function createStyles(colors: ColorPalette) {
     titleRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       marginTop: 16,
       gap: 12,
     },
@@ -394,14 +394,14 @@ function createStyles(colors: ColorPalette) {
     statsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       marginTop: 6,
     },
     placementRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      marginHorizontal: 16,
+      marginHorizontal: 20,
       marginTop: 10,
       paddingHorizontal: 10,
       paddingVertical: 6,
@@ -416,7 +416,7 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       marginTop: 18,
     },
     avatar: {
@@ -448,7 +448,7 @@ function createStyles(colors: ColorPalette) {
       color: colors.text,
     },
     descriptionBox: {
-      marginHorizontal: 16,
+      marginHorizontal: 20,
       marginTop: 18,
       padding: 14,
     },

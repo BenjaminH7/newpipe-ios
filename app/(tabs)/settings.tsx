@@ -11,7 +11,9 @@ import {
   useTranslateLyrics,
   useVideoQuotaMinutes,
 } from '@/hooks/useSettings';
+import { MiniPlayer } from '@/components/MiniPlayer';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import type { ThemeMode } from '@/storage/settings';
 import { useTheme, type ColorPalette } from '@/theme';
 
@@ -178,6 +180,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { contentBottomPadding } = useBottomOffsets();
   const [textOnlyMode, setTextOnlyMode] = useTextOnlyMode();
   const [skipProductPlacements, setSkipProductPlacements] = useSkipProductPlacements();
   const [themeMode, setThemeMode] = useThemeMode();
@@ -189,7 +192,11 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader title="Réglages" />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={styles.sectionTitle}>Apparence</Text>
       <View style={[sharedStyles.card, styles.section]}>
         <View style={styles.themeBlock}>
@@ -277,6 +284,8 @@ export default function SettingsScreen() {
         />
       </View>
       </ScrollView>
+
+      <MiniPlayer />
     </View>
   );
 }
@@ -293,7 +302,6 @@ function createStyles(colors: ColorPalette) {
     content: {
       paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 32,
     },
     sectionTitle: {
       color: colors.muted,
@@ -306,9 +314,10 @@ function createStyles(colors: ColorPalette) {
     section: {
       padding: 4,
     },
-    themeSection: {
-      padding: 14,
-      gap: 4,
+    themeBlock: {
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      gap: 2,
     },
     segmentedControl: {
       flexDirection: 'row',

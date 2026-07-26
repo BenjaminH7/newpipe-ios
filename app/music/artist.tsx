@@ -19,6 +19,7 @@ import { AlbumCard } from '@/components/AlbumCard';
 import { ArtistTrackRow } from '@/components/ArtistTrackRow';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
 import { usePlayer } from '@/player/PlayerContext';
 import type { MusicTrack } from '@/storage/musicLibrary';
@@ -39,6 +40,7 @@ export default function ArtistScreen() {
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { currentTrack, isPlaying, shuffle, playTrack, toggleShuffle } = usePlayer();
+  const { contentBottomPadding } = useBottomOffsets();
 
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +129,7 @@ export default function ArtistScreen() {
         <FlatList
           data={tracks}
           keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{ paddingBottom: contentBottomPadding }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.header}>
@@ -234,9 +236,6 @@ function createStyles(colors: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    list: {
-      paddingBottom: 24,
     },
     header: {
       marginBottom: 8,

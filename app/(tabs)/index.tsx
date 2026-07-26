@@ -15,6 +15,7 @@ import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useTheme, type ColorPalette } from '@/theme';
 
 function dedupeById(items: VideoSummary[]): VideoSummary[] {
@@ -28,6 +29,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { contentBottomPadding } = useBottomOffsets();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -107,17 +109,23 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {status === 'idle' && <EmptyView message="Cherche une vidéo pour commencer." />}
+      {status === 'idle' && (
+        <EmptyView
+          icon="search-outline"
+          title="Trouve ta prochaine vidéo"
+          message="Cherche des vidéos ou un artiste pour commencer."
+        />
+      )}
       {status === 'loading' && <LoadingView label="Recherche en cours..." />}
       {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => runSearch(query)} />}
       {status === 'ready' && results.length === 0 && (
-        <EmptyView message="Aucune vidéo trouvée." />
+        <EmptyView icon="search-outline" title="Aucun résultat" message="Essaie avec d'autres mots-clés." />
       )}
       {status === 'ready' && results.length > 0 && (
         <FlatList
           data={results}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <VideoListItem
@@ -179,7 +187,6 @@ function createStyles(colors: ColorPalette) {
     list: {
       paddingHorizontal: 20,
       paddingTop: 4,
-      paddingBottom: 24,
     },
   });
 }

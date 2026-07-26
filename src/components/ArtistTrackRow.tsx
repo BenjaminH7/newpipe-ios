@@ -35,7 +35,7 @@ export function ArtistTrackRow({
           <Text style={sharedStyles.mutedText}>{rank}</Text>
         )}
       </View>
-      <Image source={{ uri: track.albumCoverUrl }} style={[styles.cover, sharedStyles.thumbnail]} contentFit="cover" />
+      <Image source={{ uri: track.albumCoverUrl }} style={[styles.cover, sharedStyles.coverSmall]} contentFit="cover" />
       <Text style={[sharedStyles.text, styles.title, isActive && { color: colors.accent }]} numberOfLines={1}>
         {track.title}
       </Text>
