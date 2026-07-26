@@ -11,6 +11,7 @@ import {
   useTranslateLyrics,
   useVideoQuotaMinutes,
 } from '@/hooks/useSettings';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import type { ThemeMode } from '@/storage/settings';
 import { useTheme, type ColorPalette } from '@/theme';
 
@@ -186,30 +187,29 @@ export default function SettingsScreen() {
   const [hideSubscriptionsTab, setHideSubscriptionsTab] = useHideSubscriptionsTab();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <ScreenHeader title="Réglages" />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.sectionTitle}>Apparence</Text>
-      <View style={[sharedStyles.card, styles.section, styles.themeSection]}>
-        <Text style={[sharedStyles.text, styles.rowTitle]}>Thème</Text>
-        <Text style={sharedStyles.mutedText}>
-          Choisis un thème clair ou sombre, ou suis le réglage de ton appareil.
-        </Text>
-        <ThemeModeSelector mode={themeMode} onChange={setThemeMode} colors={colors} styles={styles} />
-      </View>
-
-      <Text style={styles.sectionTitle}>Historique</Text>
       <View style={[sharedStyles.card, styles.section]}>
-        <NavigationRow
-          title="Voir l'historique"
-          description="Retrouve les vidéos regardées et les musiques écoutées récemment."
-          onPress={() => router.push('/history')}
+        <View style={styles.themeBlock}>
+          <Text style={[sharedStyles.text, styles.rowTitle]}>Thème</Text>
+          <Text style={sharedStyles.mutedText}>
+            Choisis un thème clair ou sombre, ou suis le réglage de ton appareil.
+          </Text>
+          <ThemeModeSelector mode={themeMode} onChange={setThemeMode} colors={colors} styles={styles} />
+        </View>
+        <View style={styles.separator} />
+        <SettingRow
+          title="Mode Texte Uniquement"
+          description="Cache les miniatures dans les résultats de recherche et les remplace par un carré gris avec la durée, pour éviter le putaclic."
+          value={textOnlyMode}
+          onValueChange={setTextOnlyMode}
           colors={colors}
           sharedStyles={sharedStyles}
           styles={styles}
         />
-      </View>
-
-      <Text style={styles.sectionTitle}>Onglets</Text>
-      <View style={[sharedStyles.card, styles.section]}>
+        <View style={styles.separator} />
         <SettingRow
           title="Masquer l'onglet Abonnements"
           description="Retire l'onglet Abonnements de la barre de navigation."
@@ -221,21 +221,18 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle}>Recherche</Text>
+      <Text style={styles.sectionTitle}>Lecture</Text>
       <View style={[sharedStyles.card, styles.section]}>
         <SettingRow
-          title="Mode Texte Uniquement"
-          description="Cache les miniatures dans les résultats de recherche et les remplace par un carré gris avec la durée, pour éviter le putaclic."
-          value={textOnlyMode}
-          onValueChange={setTextOnlyMode}
+          title="Passer les placements de produit"
+          description="Saute automatiquement les segments de placement de produit détectés via SponsorBlock."
+          value={skipProductPlacements}
+          onValueChange={setSkipProductPlacements}
           colors={colors}
           sharedStyles={sharedStyles}
           styles={styles}
         />
-      </View>
-
-      <Text style={styles.sectionTitle}>Paroles</Text>
-      <View style={[sharedStyles.card, styles.section]}>
+        <View style={styles.separator} />
         <SettingRow
           title="Traduire les paroles"
           description="Affiche une traduction en français sous les paroles synchronisées du lecteur musique."
@@ -268,19 +265,19 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle}>Lecture</Text>
+      <Text style={styles.sectionTitle}>Historique</Text>
       <View style={[sharedStyles.card, styles.section]}>
-        <SettingRow
-          title="Passer les placements de produit"
-          description="Saute automatiquement les segments de placement de produit détectés via SponsorBlock."
-          value={skipProductPlacements}
-          onValueChange={setSkipProductPlacements}
+        <NavigationRow
+          title="Voir l'historique"
+          description="Retrouve les vidéos regardées et les musiques écoutées récemment."
+          onPress={() => router.push('/history')}
           colors={colors}
           sharedStyles={sharedStyles}
           styles={styles}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -290,8 +287,12 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    scroll: {
+      flex: 1,
+    },
     content: {
-      padding: 16,
+      paddingHorizontal: 20,
+      paddingTop: 4,
       paddingBottom: 32,
     },
     sectionTitle: {

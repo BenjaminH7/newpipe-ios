@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useSavedVideos } from '@/hooks/useSavedVideos';
 import { useTheme, type ColorPalette } from '@/theme';
 
@@ -15,6 +16,13 @@ export default function PlaylistsScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader
+        title="Playlists"
+        subtitle={
+          videos.length > 0 ? `${videos.length} vidéo${videos.length > 1 ? 's' : ''}` : undefined
+        }
+      />
+
       {videos.length === 0 ? (
         <EmptyView message="Aucune vidéo enregistrée. Appuie sur l'icône signet d'une vidéo pour la regarder plus tard." />
       ) : (
@@ -22,6 +30,7 @@ export default function PlaylistsScreen() {
           data={videos}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <VideoListItem
               video={item}
@@ -58,8 +67,8 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.background,
     },
     list: {
-      paddingHorizontal: 12,
-      paddingTop: 12,
+      paddingHorizontal: 20,
+      paddingTop: 4,
       paddingBottom: 24,
     },
   });

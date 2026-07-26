@@ -14,6 +14,7 @@ import type { VideoSummary } from '@/api/youtube';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme, type ColorPalette } from '@/theme';
 
 function dedupeById(items: VideoSummary[]): VideoSummary[] {
@@ -78,28 +79,32 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader title="Rechercher" />
+
       <View style={styles.searchBar}>
-        <Pressable onPress={() => runSearch(query)} hitSlop={8}>
-          <Ionicons name="search" size={18} color={colors.muted} />
-        </Pressable>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={() => runSearch(query)}
-          placeholder="Rechercher des vidéos ou un artiste..."
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-          returnKeyType="search"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-        <Pressable onPress={openArtist} hitSlop={8} disabled={!query.trim()}>
-          <Ionicons
-            name="person-circle-outline"
-            size={22}
-            color={query.trim() ? colors.accent : colors.border}
+        <View style={styles.searchField}>
+          <Pressable onPress={() => runSearch(query)} hitSlop={8}>
+            <Ionicons name="search" size={18} color={colors.muted} />
+          </Pressable>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={() => runSearch(query)}
+            placeholder="Rechercher des vidéos ou un artiste..."
+            placeholderTextColor={colors.muted}
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
           />
-        </Pressable>
+          <Pressable onPress={openArtist} hitSlop={8} disabled={!query.trim()}>
+            <Ionicons
+              name="person-circle-outline"
+              size={22}
+              color={query.trim() ? colors.accent : colors.border}
+            />
+          </Pressable>
+        </View>
       </View>
 
       {status === 'idle' && <EmptyView message="Cherche une vidéo pour commencer." />}
@@ -113,6 +118,7 @@ export default function SearchScreen() {
           data={results}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <VideoListItem
               video={item}
@@ -152,23 +158,27 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.background,
     },
     searchBar: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    searchField: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      margin: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: 16,
+      gap: 8,
       backgroundColor: colors.surface,
+      borderRadius: 999,
+      paddingHorizontal: 14,
     },
-    input: {
+    searchInput: {
       flex: 1,
-      fontSize: 15,
       color: colors.text,
-      padding: 0,
+      fontSize: 15,
+      paddingVertical: 10,
     },
     list: {
-      paddingHorizontal: 12,
+      paddingHorizontal: 20,
+      paddingTop: 4,
       paddingBottom: 24,
     },
   });

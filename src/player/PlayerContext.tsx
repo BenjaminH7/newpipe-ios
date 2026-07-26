@@ -121,6 +121,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // être faussé par un changement de piste ou un retour d'arrière-plan.
   const quotaTickRef = useRef<number | null>(null);
 
+  // Cache les résolutions de flux en cours/terminées par identifiant de
+  // piste. Sert à la fois à dédoublonner les appels concurrents et à
+  // préparer le flux de la piste suivante pendant que la piste courante
+  // joue encore (resolvePlaybackUri passe par plusieurs requêtes réseau et
+  // la WebView BotGuard, plusieurs secondes) : sans ça, chaque transition
+  // attend tout ce pipeline à froid, d'où le "lag" au changement de piste.
+  const playbackUriCache = useRef(new Map<string, Promise<string | null>>()).current;
+
+  const getPlaybackUri = useCallback(
+    (track: MusicTrack): Promise<string | null> => {
+      const cached = playbackUriCache.get(track.id);
+      if (cached) return cached;
+      const promise = resolvePlaybackUri(track).then((uri) => {
+        // Échec : on ne garde pas l'échec en cache pour permettre une
+        // nouvelle tentative (réseau temporairement indisponible, etc.).
+        if (uri === null) playbackUriCache.delete(track.id);
+        return uri;
+      });
+      playbackUriCache.set(track.id, promise);
+      if (playbackUriCache.size > 8) {
+        const oldestKey = playbackUriCache.keys().next().value;
+        if (oldestKey !== undefined) playbackUriCache.delete(oldestKey);
+      }
+      return promise;
+    },
+    [playbackUriCache],
+  );
+
+  // Précharge le flux de la piste qui suivra `fromTrack` si l'avance est
+  // prévisible (pas de lecture aléatoire, qui tire au sort au moment venu).
+  const prefetchNextTrack = useCallback(
+    (fromTrack: MusicTrack) => {
+      if (shuffleRef.current || repeatRef.current === 'one') return;
+      const q = queueRef.current;
+      const idx = q.findIndex((t) => t.id === fromTrack.id);
+      if (idx === -1) return;
+      let nextIdx = idx + 1;
+      if (nextIdx >= q.length) {
+        if (repeatRef.current !== 'all') return;
+        nextIdx = 0;
+      }
+      const next = q[nextIdx];
+      if (next && next.id !== fromTrack.id) getPlaybackUri(next);
+    },
+    [getPlaybackUri],
+  );
+
   const loadAndPlay = useCallback(
     async (track: MusicTrack) => {
       if (musicQuotaExceededRef.current) {
@@ -136,7 +183,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setPosition(0);
       setDuration(0);
 
-      const uri = await resolvePlaybackUri(track);
+      const uri = await getPlaybackUri(track);
       // Une autre piste a été demandée entre-temps : on abandonne ce chargement.
       if (currentTrackRef.current?.id !== track.id) return;
       if (!uri) {
@@ -151,13 +198,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (currentTrackRef.current?.id !== track.id) return;
         player.play();
         recordMusicPlayed(track);
+        prefetchNextTrack(track);
       } catch {
         // Flux hors-ligne indisponible ou expiré : on laisse la piste "en pause".
       } finally {
         setIsBuffering(false);
       }
     },
-    [player],
+    [player, getPlaybackUri, prefetchNextTrack],
   );
 
   const playTrack = useCallback(

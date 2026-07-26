@@ -79,14 +79,19 @@ export default function MusicPlayerScreen() {
   useEffect(() => {
     if (!currentTrack) return;
     let cancelled = false;
+    setLyrics(null);
     setLyricsStatus('loading');
     setSyncedTranslations(null);
     setPlainTranslation(null);
-    fetchLyrics(currentTrack).then((result) => {
-      if (cancelled) return;
-      setLyrics(result);
-      setLyricsStatus(result ? 'ready' : 'error');
-    });
+    fetchLyrics(currentTrack)
+      .then((result) => {
+        if (cancelled) return;
+        setLyrics(result);
+        setLyricsStatus(result ? 'ready' : 'error');
+      })
+      .catch(() => {
+        if (!cancelled) setLyricsStatus('error');
+      });
     return () => {
       cancelled = true;
     };
@@ -123,14 +128,61 @@ export default function MusicPlayerScreen() {
     return idx;
   }, [lyrics, position]);
 
+  // Suivi automatique de la ligne active. On ne force pas le défilement
+  // pendant que l'utilisateur fait défiler lui-même (sinon la liste "saute"
+  // sous son doigt) : on reprend la main quelques secondes après son geste.
+  const userScrollingRef = useRef(false);
+  const userScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleUserScrollBegin = useCallback(() => {
+    if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+    userScrollingRef.current = true;
+  }, []);
+
+  const handleUserScrollEnd = useCallback(() => {
+    if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+    userScrollTimeout.current = setTimeout(() => {
+      userScrollingRef.current = false;
+    }, 4000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (activeLyricsLine < 0) return;
-    try {
-      lyricsListRef.current?.scrollToIndex({ index: activeLyricsLine, viewPosition: 0.4, animated: true });
-    } catch {
-      // La liste peut ne pas être encore mesurée : on retentera au prochain tick.
-    }
-  }, [activeLyricsLine]);
+    if (!showLyrics || activeLyricsLine < 0 || userScrollingRef.current) return;
+    // Petit délai pour laisser la FlatList se monter quand on vient d'ouvrir
+    // le panneau des paroles (sinon scrollToIndex tombe dans le vide).
+    const timer = setTimeout(() => {
+      try {
+        lyricsListRef.current?.scrollToIndex({ index: activeLyricsLine, viewPosition: 0.4, animated: true });
+      } catch {
+        // Liste pas encore mesurée : onScrollToIndexFailed prendra le relais.
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [activeLyricsLine, showLyrics]);
+
+  // Les lignes ont des hauteurs variables : quand la cible n'est pas encore
+  // rendue, scrollToIndex échoue. On s'approche à l'estime puis on retente.
+  const handleScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      lyricsListRef.current?.scrollToOffset({ offset: info.index * info.averageItemLength, animated: false });
+      setTimeout(() => {
+        if (userScrollingRef.current) return;
+        try {
+          lyricsListRef.current?.scrollToIndex({ index: info.index, viewPosition: 0.4, animated: true });
+        } catch {
+          // Tant pis pour ce tick, le prochain changement de ligne retentera.
+        }
+      }, 250);
+    },
+    [],
+  );
 
   // Barre de progression glissable : on suit le doigt en continu (isSeeking +
   // seekRatio) et on ne notifie le player qu'au relâchement, comme un slider
@@ -306,7 +358,10 @@ export default function MusicPlayerScreen() {
                 keyExtractor={(_, i) => String(i)}
                 contentContainerStyle={styles.lyricsListContent}
                 showsVerticalScrollIndicator={false}
-                onScrollToIndexFailed={() => {}}
+                onScrollToIndexFailed={handleScrollToIndexFailed}
+                onScrollBeginDrag={handleUserScrollBegin}
+                onScrollEndDrag={handleUserScrollEnd}
+                onMomentumScrollEnd={handleUserScrollEnd}
                 renderItem={({ item, index }) => (
                   <View style={styles.lyricsLineWrap}>
                     <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>

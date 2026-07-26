@@ -37,7 +37,9 @@ export default function AlbumScreen() {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [album, setAlbum] = useState<DeezerAlbumDetails | null>(null);
-  const tracks = album?.tracks ?? [];
+  // Référence stable obligatoire : un `album?.tracks ?? []` inline recrée un
+  // tableau à chaque rendu et fait boucler l'effet de useYoutubeResolution.
+  const tracks = useMemo(() => album?.tracks ?? [], [album]);
   const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
 
   const load = useCallback(async (id: string) => {

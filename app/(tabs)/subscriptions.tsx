@@ -7,6 +7,8 @@ import { getChannelUploads } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
+import { MiniPlayer } from '@/components/MiniPlayer';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useSubscriptions, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
 import type { SubscribedChannel } from '@/storage/subscriptions';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -70,6 +72,15 @@ export default function SubscriptionsScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader
+        title="Abonnements"
+        subtitle={
+          channels.length > 0
+            ? `${channels.length} chaîne${channels.length > 1 ? 's' : ''}`
+            : undefined
+        }
+      />
+
       {channels.length === 0 ? (
         <EmptyView message="Aucun abonnement. Abonne-toi à une chaîne depuis une vidéo pour retrouver ses nouveautés ici." />
       ) : (
@@ -77,6 +88,7 @@ export default function SubscriptionsScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.channelsScroll}
             contentContainerStyle={styles.channelsRow}
           >
             {channels.map((c) => (
@@ -116,6 +128,7 @@ export default function SubscriptionsScreen() {
               data={feed}
               keyExtractor={(item, index) => `${item.id}-${index}`}
               contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl
                   refreshing={status === 'loading'}
@@ -148,6 +161,8 @@ export default function SubscriptionsScreen() {
           )}
         </>
       )}
+
+      <MiniPlayer />
     </View>
   );
 }
@@ -158,9 +173,12 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    channelsScroll: {
+      flexGrow: 0,
+    },
     channelsRow: {
       gap: 14,
-      paddingHorizontal: 12,
+      paddingHorizontal: 20,
       paddingVertical: 14,
     },
     channelChip: {
@@ -198,7 +216,7 @@ function createStyles(colors: ColorPalette) {
       textAlign: 'center',
     },
     list: {
-      paddingHorizontal: 12,
+      paddingHorizontal: 20,
       paddingTop: 4,
       paddingBottom: 24,
     },

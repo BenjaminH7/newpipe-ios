@@ -19,7 +19,10 @@ export function useYoutubeResolution(tracks: DeezerTrack[]) {
   }, [resolved]);
 
   useEffect(() => {
-    setResolved({});
+    // Ne réinitialise que si nécessaire : renvoyer la même référence quand
+    // l'état est déjà vide évite un re-rendu, et donc une boucle infinie si
+    // l'appelant passe un tableau recréé à chaque rendu.
+    setResolved((prev) => (Object.keys(prev).length === 0 ? prev : {}));
     if (tracks.length === 0) return;
     let cancelled = false;
     let nextIndex = 0;

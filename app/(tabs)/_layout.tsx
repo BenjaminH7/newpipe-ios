@@ -3,6 +3,9 @@ import { Tabs } from 'expo-router';
 import { useHideSubscriptionsTab } from '@/hooks/useSettings';
 import { useTheme } from '@/theme';
 
+// Tab bar façon Spotify : pas de header natif (chaque écran affiche son
+// ScreenHeader), pas de bordure haute, onglet actif dans la couleur du texte
+// plutôt qu'en accent.
 export default function TabsLayout() {
   const { colors } = useTheme();
   const [hideSubscriptionsTab] = useHideSubscriptionsTab();
@@ -10,21 +13,18 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
-        headerTitleStyle: { color: colors.text, fontWeight: '600' },
-        tabBarActiveTintColor: colors.accent,
+        headerShown: false,
+        tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
+        tabBarStyle: { backgroundColor: colors.background, borderTopWidth: 0, elevation: 0 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'YouTube',
-          tabBarLabel: 'Rechercher',
+          title: 'Rechercher',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'search' : 'search-outline'} size={size} color={color} />
           ),
@@ -53,7 +53,6 @@ export default function TabsLayout() {
         name="music"
         options={{
           title: 'Musique',
-          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={size} color={color} />
           ),

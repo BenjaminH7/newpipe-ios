@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { usePlayer } from '@/player/PlayerContext';
@@ -13,8 +13,7 @@ import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { colors, sharedStyles } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tracks = useMusicLibrary();
   const { currentTrack, isPlaying, playTrack } = usePlayer();
@@ -47,14 +46,12 @@ export default function MusicScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.topHeader, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.title}>Musique</Text>
-        {tracks.length > 0 && (
-          <Text style={sharedStyles.mutedText}>
-            {tracks.length} titre{tracks.length > 1 ? 's' : ''}
-          </Text>
-        )}
-      </View>
+      <ScreenHeader
+        title="Musique"
+        subtitle={
+          tracks.length > 0 ? `${tracks.length} titre${tracks.length > 1 ? 's' : ''}` : undefined
+        }
+      />
 
       <View style={styles.searchBar}>
         <View style={styles.searchField}>
@@ -106,16 +103,6 @@ function createStyles(colors: ColorPalette) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-    },
-    topHeader: {
-      paddingHorizontal: 20,
-      paddingBottom: 8,
-      gap: 2,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 32,
-      fontWeight: '800',
     },
     searchBar: {
       paddingHorizontal: 20,
