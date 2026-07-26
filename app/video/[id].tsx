@@ -12,6 +12,7 @@ import { useIsVideoSaved, useToggleSavedVideo } from '@/hooks/useSavedVideos';
 import { useIsChannelSubscribed, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
 import { useSkipProductPlacements, useVideoQuotaMinutes } from '@/hooks/useSettings';
 import { useVideoQuotaExceeded } from '@/hooks/useUsageQuota';
+import { recordVideoWatched } from '@/storage/history';
 import { addVideoWatchSeconds } from '@/storage/usageQuota';
 import { getVideoProgress, loadWatchProgress, saveWatchProgress } from '@/storage/watchProgress';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -65,6 +66,17 @@ export default function VideoDetailScreen() {
       setSegments(placementSegments);
       if (source) {
         setPlayable(source);
+        recordVideoWatched({
+          id,
+          title: data.title,
+          thumbnail: params.thumbnail ?? data.thumbnailUrl,
+          channelId: data.uploaderId || params.channelId || null,
+          channelName: data.uploader,
+          channelAvatar: data.uploaderAvatar,
+          uploadedDate: formatUploadDate(data.uploadDate),
+          duration: data.duration,
+          views: data.views,
+        });
       } else {
         setPlaybackUnavailable(true);
       }

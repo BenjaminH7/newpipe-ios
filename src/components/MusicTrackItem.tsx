@@ -7,12 +7,16 @@ import { formatDuration } from '@/utils/format';
 
 export function MusicTrackItem({
   track,
+  isActive = false,
+  isPlaying = false,
   onPress,
   onArtistPress,
   onRemove,
   onRetryDownload,
 }: {
   track: MusicTrack;
+  isActive?: boolean;
+  isPlaying?: boolean;
   onPress: () => void;
   onArtistPress: () => void;
   onRemove: () => void;
@@ -23,9 +27,22 @@ export function MusicTrackItem({
     <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]} onPress={onPress}>
       <Image source={{ uri: track.coverArtUrl }} style={[styles.cover, sharedStyles.thumbnail]} contentFit="cover" />
       <View style={styles.info}>
-        <Text style={[sharedStyles.text, styles.title]} numberOfLines={1}>
-          {track.title}
-        </Text>
+        <View style={styles.titleRow}>
+          {isActive && (
+            <Ionicons
+              name={isPlaying ? 'volume-high' : 'pause'}
+              size={14}
+              color={colors.accent}
+              style={styles.playingIcon}
+            />
+          )}
+          <Text
+            style={[sharedStyles.text, styles.title, isActive && { color: colors.accent }]}
+            numberOfLines={1}
+          >
+            {track.title}
+          </Text>
+        </View>
         <View style={styles.subRow}>
           <Pressable hitSlop={6} onPress={onArtistPress} style={styles.artistPressable}>
             <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
@@ -54,7 +71,7 @@ export function MusicTrackItem({
       )}
 
       <Pressable hitSlop={8} onPress={onRemove} style={styles.status}>
-        <Ionicons name="close" size={20} color={colors.muted} />
+        <Ionicons name="heart-outline" size={20} color={colors.muted} />
       </Pressable>
     </Pressable>
   );
@@ -77,6 +94,13 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     gap: 2,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playingIcon: {
+    marginRight: 4,
   },
   title: {
     fontSize: 15,

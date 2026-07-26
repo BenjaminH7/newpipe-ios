@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -26,7 +25,7 @@ type Status = 'idle' | 'loading' | 'error' | 'ready';
 
 export default function SearchScreen() {
   const router = useRouter();
-  const { colors, sharedStyles } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('idle');
@@ -80,21 +79,26 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
+        <Pressable onPress={() => runSearch(query)} hitSlop={8}>
+          <Ionicons name="search" size={18} color={colors.muted} />
+        </Pressable>
         <TextInput
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => runSearch(query)}
           placeholder="Rechercher des vidéos ou un artiste..."
           placeholderTextColor={colors.muted}
-          style={[sharedStyles.input, styles.input]}
+          style={styles.input}
           returnKeyType="search"
           autoCorrect={false}
+          clearButtonMode="while-editing"
         />
-        <Pressable style={sharedStyles.button} onPress={() => runSearch(query)}>
-          <Text style={sharedStyles.buttonText}>Chercher</Text>
-        </Pressable>
-        <Pressable style={styles.artistButton} onPress={openArtist} hitSlop={8}>
-          <Ionicons name="person-outline" size={18} color={colors.accent} />
+        <Pressable onPress={openArtist} hitSlop={8} disabled={!query.trim()}>
+          <Ionicons
+            name="person-circle-outline"
+            size={22}
+            color={query.trim() ? colors.accent : colors.border}
+          />
         </Pressable>
       </View>
 
@@ -149,22 +153,19 @@ function createStyles(colors: ColorPalette) {
     },
     searchBar: {
       flexDirection: 'row',
-      gap: 8,
-      padding: 12,
       alignItems: 'center',
+      gap: 10,
+      margin: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
     },
     input: {
       flex: 1,
       fontSize: 15,
-    },
-    artistButton: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
+      color: colors.text,
+      padding: 0,
     },
     list: {
       paddingHorizontal: 12,

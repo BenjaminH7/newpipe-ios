@@ -14,7 +14,7 @@ export default function MusicScreen() {
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tracks = useMusicLibrary();
-  const { playTrack } = usePlayer();
+  const { currentTrack, isPlaying, playTrack } = usePlayer();
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
   const [query, setQuery] = useState('');
@@ -69,6 +69,8 @@ export default function MusicScreen() {
           renderItem={({ item }) => (
             <MusicTrackItem
               track={item}
+              isActive={currentTrack?.id === item.id}
+              isPlaying={isPlaying}
               onPress={() => playTrack(item, filtered)}
               onArtistPress={() => openArtist(item.artist)}
               onRemove={() => confirmRemoveTrack(item)}

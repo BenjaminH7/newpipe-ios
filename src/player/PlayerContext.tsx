@@ -10,6 +10,7 @@ import { StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { getVideoInfo } from '@/api/youtube';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
+import { recordMusicPlayed } from '@/storage/history';
 import { getLocalAudioUri } from '@/storage/musicDownloads';
 import type { MusicTrack } from '@/storage/musicLibrary';
 import { addMusicListenSeconds } from '@/storage/usageQuota';
@@ -130,6 +131,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         });
         if (currentTrackRef.current?.id !== track.id) return;
         player.play();
+        recordMusicPlayed(track);
       } catch {
         // Flux hors-ligne indisponible ou expiré : on laisse la piste "en pause".
       } finally {

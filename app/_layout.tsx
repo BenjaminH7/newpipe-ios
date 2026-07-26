@@ -33,7 +33,8 @@ function RootLayoutContent() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="video/[id]" options={{ title: '' }} />
           <Stack.Screen name="music/player" options={{ headerShown: false, presentation: 'modal' }} />
-          <Stack.Screen name="music/artist" options={{ title: '' }} />
+          <Stack.Screen name="music/artist" options={{ headerShown: false }} />
+          <Stack.Screen name="history" options={{ title: 'Historique' }} />
         </Stack>
       </PlayerProvider>
     </SafeAreaProvider>

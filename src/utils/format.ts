@@ -31,3 +31,18 @@ export function formatUploadDate(dateStr: string): string {
   if (Number.isNaN(date.getTime())) return dateStr;
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
+
+export function formatRelativeTime(timestamp: number): string {
+  const diffSeconds = Math.max(0, (Date.now() - timestamp) / 1000);
+  if (diffSeconds < 60) return "À l'instant";
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Hier';
+  if (diffDays < 7) return `Il y a ${diffDays} j`;
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(timestamp),
+  );
+}
