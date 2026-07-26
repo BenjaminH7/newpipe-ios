@@ -84,12 +84,6 @@ export default function SearchScreen() {
     }
   }, [nextpage, loadingMore, status]);
 
-  const openArtist = useCallback(() => {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    router.push({ pathname: '/music/artist', params: { artist: trimmed } });
-  }, [query, router]);
-
   // Navigation avec l'id Deezer : l'écran artiste charge alors directement le
   // bon profil, sans repasser par une recherche par nom ambiguë.
   const openArtistProfile = useCallback(
@@ -122,13 +116,6 @@ export default function SearchScreen() {
             autoCorrect={false}
             clearButtonMode="while-editing"
           />
-          <Pressable onPress={openArtist} hitSlop={8} disabled={!query.trim()}>
-            <Ionicons
-              name="person-circle-outline"
-              size={22}
-              color={query.trim() ? colors.accent : colors.border}
-            />
-          </Pressable>
         </View>
       </View>
 
