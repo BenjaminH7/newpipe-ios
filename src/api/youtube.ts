@@ -8,4 +8,5 @@ export {
   getVideoInfo,
   getChannelUploads,
   getChannelUploadsNextPage,
+  getRadioQueue,
 } from './innertube/client';

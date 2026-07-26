@@ -3,6 +3,7 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   PanResponder,
   Pressable,
@@ -50,6 +51,8 @@ export default function MusicPlayerScreen() {
     shuffle,
     repeat,
     sleepTimerRemaining,
+    radioEnabled,
+    radioLoading,
     togglePlay,
     playNext,
     playPrevious,
@@ -57,6 +60,7 @@ export default function MusicPlayerScreen() {
     toggleShuffle,
     cycleRepeat,
     setSleepTimer,
+    toggleRadio,
   } = usePlayer();
   const [trackWidth, setTrackWidth] = useState(0);
   const isInLibrary = useIsInMusicLibrary(currentTrack?.id ?? '');
@@ -140,6 +144,10 @@ export default function MusicPlayerScreen() {
   const seekRatioRef = useRef(0);
   const durationRef = useRef(duration);
   const seekToRef = useRef(seekTo);
+  // Comme sur Spotify : le curseur (le petit rond) reste invisible tant qu'on
+  // n'interagit pas avec la barre, et apparaît en un fondu/zoom léger dès
+  // qu'on pose le doigt dessus pour glisser dans la piste.
+  const thumbAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     trackWidthRef.current = trackWidth;
@@ -165,6 +173,7 @@ export default function MusicPlayerScreen() {
       onPanResponderGrant: (e: GestureResponderEvent) => {
         setIsSeeking(true);
         updateRatioFromPageX(e.nativeEvent.pageX);
+        Animated.timing(thumbAnim, { toValue: 1, duration: 120, useNativeDriver: true }).start();
       },
       onPanResponderMove: (e: GestureResponderEvent) => {
         updateRatioFromPageX(e.nativeEvent.pageX);
@@ -172,8 +181,12 @@ export default function MusicPlayerScreen() {
       onPanResponderRelease: () => {
         seekToRef.current(seekRatioRef.current * durationRef.current);
         setIsSeeking(false);
+        Animated.timing(thumbAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
       },
-      onPanResponderTerminate: () => setIsSeeking(false),
+      onPanResponderTerminate: () => {
+        setIsSeeking(false);
+        Animated.timing(thumbAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+      },
     }),
   ).current;
 
@@ -244,7 +257,7 @@ export default function MusicPlayerScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.topRow}>
           <Text style={styles.topRowLabel} numberOfLines={1}>
-            Lecture en cours
+            {radioEnabled ? 'Radio' : 'Lecture en cours'}
           </Text>
           <Pressable onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="chevron-down" size={28} color="#ffffff" />
@@ -262,6 +275,13 @@ export default function MusicPlayerScreen() {
                 />
               </Pressable>
             )}
+            <Pressable onPress={toggleRadio} hitSlop={8} disabled={radioLoading}>
+              {radioLoading ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons name={radioEnabled ? 'radio' : 'radio-outline'} size={22} color={radioEnabled ? colors.accent : '#ffffff'} />
+              )}
+            </Pressable>
             <Pressable onPress={openSleepTimerPicker} hitSlop={8}>
               <Ionicons name="timer-outline" size={22} color={sleepTimerRemaining !== null ? colors.accent : '#ffffff'} />
             </Pressable>
@@ -350,7 +370,16 @@ export default function MusicPlayerScreen() {
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${displayRatio * 100}%` }]} />
           </View>
-          <View style={[styles.progressThumb, { left: `${displayRatio * 100}%` }]} />
+          <Animated.View
+            style={[
+              styles.progressThumb,
+              {
+                left: `${displayRatio * 100}%`,
+                opacity: thumbAnim,
+                transform: [{ scale: thumbAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }],
+              },
+            ]}
+          />
         </View>
         <View style={styles.timeRow}>
           <Text style={styles.timeText}>{formatDuration(displayPosition)}</Text>

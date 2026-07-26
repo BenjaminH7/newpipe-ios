@@ -8,7 +8,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { getVideoInfo } from '@/api/youtube';
+import { radioTrackToMusicTrack } from '@/api/musicMatch';
+import { getRadioQueue, getVideoInfo } from '@/api/youtube';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { recordMusicPlayed } from '@/storage/history';
 import { getLocalAudioUri } from '@/storage/musicDownloads';
@@ -28,6 +29,10 @@ interface PlayerContextValue {
   repeat: RepeatMode;
   /** Secondes restantes avant la mise en pause automatique, ou `null` si désactivée. */
   sleepTimerRemaining: number | null;
+  /** Radio activée : la file s'étend automatiquement (Mix YouTube) une fois la fin atteinte. */
+  radioEnabled: boolean;
+  /** Chargement des morceaux suivants de la radio en cours (seed initiale ou extension). */
+  radioLoading: boolean;
   playTrack: (track: MusicTrack, queue: MusicTrack[]) => void;
   togglePlay: () => void;
   playNext: () => void;
@@ -37,6 +42,8 @@ interface PlayerContextValue {
   cycleRepeat: () => void;
   /** `minutes` = délai avant pause automatique, `null` pour désactiver la minuterie. */
   setSleepTimer: (minutes: number | null) => void;
+  /** Active/désactive la radio à partir de la piste en cours (voir `radioEnabled`). */
+  toggleRadio: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -66,6 +73,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [repeat, setRepeat] = useState<RepeatMode>('off');
   const [sleepTimerEndsAt, setSleepTimerEndsAt] = useState<number | null>(null);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
+  const [radioEnabled, setRadioEnabled] = useState(false);
+  const [radioLoading, setRadioLoading] = useState(false);
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
@@ -96,6 +105,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     positionRef.current = position;
   }, [position]);
+  const radioEnabledRef = useRef(radioEnabled);
+  useEffect(() => {
+    radioEnabledRef.current = radioEnabled;
+  }, [radioEnabled]);
 
   // Quota d'écoute quotidien : une fois dépassé, on bloque le démarrage de
   // nouvelles pistes et on coupe la lecture en cours (voir effet plus bas).
@@ -149,14 +162,48 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const playTrack = useCallback(
     (track: MusicTrack, newQueue: MusicTrack[]) => {
+      setRadioEnabled(false);
       setQueue(newQueue);
       loadAndPlay(track);
     },
     [loadAndPlay],
   );
 
+  // Étend la file avec le Mix YouTube ("radio") de `seedId` : dédoublonne
+  // contre la file actuelle (le Mix renvoie souvent la piste de départ et des
+  // voisines déjà connues) et renvoie les morceaux effectivement ajoutés,
+  // pour que l'appelant puisse enchaîner la lecture dessus immédiatement.
+  const extendRadioQueue = useCallback(async (seedId: string): Promise<MusicTrack[]> => {
+    setRadioLoading(true);
+    try {
+      const related = await getRadioQueue(seedId);
+      const existingIds = new Set(queueRef.current.map((t) => t.id));
+      const additions = related
+        .filter((v) => v.id !== seedId && !existingIds.has(v.id))
+        .map(radioTrackToMusicTrack);
+      if (additions.length > 0) {
+        setQueue((prev) => [...prev, ...additions]);
+      }
+      return additions;
+    } catch {
+      return [];
+    } finally {
+      setRadioLoading(false);
+    }
+  }, []);
+
+  const toggleRadio = useCallback(() => {
+    if (radioEnabledRef.current) {
+      setRadioEnabled(false);
+      return;
+    }
+    setRadioEnabled(true);
+    const cur = currentTrackRef.current;
+    if (cur) extendRadioQueue(cur.id);
+  }, [extendRadioQueue]);
+
   const stepQueue = useCallback(
-    (direction: 1 | -1) => {
+    async (direction: 1 | -1) => {
       const q = queueRef.current;
       const cur = currentTrackRef.current;
       if (q.length === 0 || !cur) return;
@@ -172,6 +219,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const idx = q.findIndex((t) => t.id === cur.id);
       if (idx === -1) return;
       let nextIdx = idx + direction;
+
+      // File épuisée en avançant, radio active : on la prolonge plutôt que de
+      // s'arrêter ou de reboucler — c'est tout l'intérêt du mode radio.
+      if (nextIdx >= q.length && direction === 1 && radioEnabledRef.current) {
+        const additions = await extendRadioQueue(cur.id);
+        if (additions.length > 0) {
+          loadAndPlay(additions[0]);
+          return;
+        }
+      }
+
       if (nextIdx < 0) nextIdx = repeatRef.current === 'all' ? q.length - 1 : -1;
       if (nextIdx >= q.length) nextIdx = repeatRef.current === 'all' ? 0 : -1;
 
@@ -181,7 +239,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       loadAndPlay(q[nextIdx]);
     },
-    [loadAndPlay, player],
+    [loadAndPlay, player, extendRadioQueue],
   );
 
   const playNext = useCallback(() => stepQueue(1), [stepQueue]);
@@ -291,6 +349,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       shuffle,
       repeat,
       sleepTimerRemaining,
+      radioEnabled,
+      radioLoading,
       playTrack,
       togglePlay,
       playNext,
@@ -299,6 +359,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       toggleShuffle,
       cycleRepeat,
       setSleepTimer,
+      toggleRadio,
     }),
     [
       currentTrack,
@@ -310,6 +371,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       shuffle,
       repeat,
       sleepTimerRemaining,
+      radioEnabled,
+      radioLoading,
       playTrack,
       togglePlay,
       playNext,
@@ -318,6 +381,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       toggleShuffle,
       cycleRepeat,
       setSleepTimer,
+      toggleRadio,
     ],
   );
 

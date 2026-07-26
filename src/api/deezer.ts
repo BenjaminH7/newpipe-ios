@@ -64,11 +64,18 @@ interface DeezerAlbumApi {
 }
 
 export async function searchArtist(name: string): Promise<DeezerArtist | null> {
-  const res = await fetch(`${DEEZER_BASE}/search/artist?q=${encodeURIComponent(name)}&limit=1`);
+  const res = await fetch(`${DEEZER_BASE}/search/artist?q=${encodeURIComponent(name)}&limit=5`);
   if (!res.ok) return null;
   const data = await res.json();
-  const item = (data?.data ?? [])[0] as DeezerArtistApi | undefined;
-  if (!item) return null;
+  const items = (data?.data ?? []) as DeezerArtistApi[];
+  if (items.length === 0) return null;
+
+  // Le classement "pertinence" de Deezer place parfois un homonyme obscur
+  // (tribute, piano covers...) avant l'artiste réel (ex: "Ed Sheeran" avec
+  // 154 albums et 20M de fans arrive 2e, derrière un compte à 1 album et
+  // 2378 fans). On prend le plus populaire parmi les premiers résultats
+  // plutôt que de faire confiance au tout premier.
+  const item = items.reduce((best, cur) => ((cur.nb_fan ?? 0) > (best.nb_fan ?? 0) ? cur : best));
   return {
     id: item.id,
     name: item.name,

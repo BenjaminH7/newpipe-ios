@@ -67,3 +67,20 @@ export function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrac
     downloadStatus: 'downloaded',
   };
 }
+
+// Convertit un résultat de radio YouTube (getRadioQueue) en MusicTrack : pas
+// de fiche Deezer ici, donc le nom de la chaîne sert de "artiste" au mieux —
+// suffisant pour l'affichage, moins fiable que le matching Deezer utilisé
+// ailleurs pour la recherche par artiste.
+export function radioTrackToMusicTrack(video: VideoSummary): MusicTrack {
+  return {
+    id: video.id,
+    title: video.title,
+    artist: video.channelName || 'YouTube',
+    coverArtUrl: video.thumbnail,
+    duration: video.duration,
+    addedAt: Date.now(),
+    localUri: null,
+    downloadStatus: 'downloaded',
+  };
+}

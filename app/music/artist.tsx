@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -178,15 +178,17 @@ export default function ArtistScreen() {
               {albums.length > 0 && (
                 <>
                   <Text style={[sharedStyles.text, styles.sectionLabel]}>Discographie</Text>
-                  <FlatList
-                    data={albums}
+                  <ScrollView
                     horizontal
-                    keyExtractor={(item) => String(item.id)}
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.albumsList}
-                    ItemSeparatorComponent={() => <View style={styles.albumSeparator} />}
-                    renderItem={({ item }) => <AlbumCard album={item} onPress={() => openAlbum(item)} />}
-                  />
+                  >
+                    {albums.map((album) => (
+                      <View key={album.id} style={styles.albumCardWrap}>
+                        <AlbumCard album={album} onPress={() => openAlbum(album)} />
+                      </View>
+                    ))}
+                  </ScrollView>
                 </>
               )}
 
@@ -338,8 +340,8 @@ function createStyles(colors: ColorPalette) {
     albumsList: {
       paddingHorizontal: 20,
     },
-    albumSeparator: {
-      width: 12,
+    albumCardWrap: {
+      marginRight: 12,
     },
   });
 }

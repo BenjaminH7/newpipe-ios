@@ -178,6 +178,39 @@ export async function getChannelUploadsNextPage(nextpage: string): Promise<Searc
   return extractSearchResult(data);
 }
 
+function parsePlaylistPanelVideoRenderer(pr: any): VideoSummary | null {
+  if (!pr.videoId) return null;
+  const thumbnails = pr.thumbnail?.thumbnails ?? [];
+  return {
+    id: pr.videoId,
+    title: textFrom(pr.title) ?? '',
+    thumbnail: thumbnails[thumbnails.length - 1]?.url ?? '',
+    channelId: browseIdFromRuns(pr.shortBylineText),
+    channelName: textFrom(pr.shortBylineText) ?? '',
+    channelAvatar: null,
+    uploadedDate: null,
+    duration: parseDurationText(textFrom(pr.lengthText)),
+    views: -1,
+  };
+}
+
+// Radio "Mix" YouTube (playlist RD<videoId>) : le même algorithme de
+// recommandation que le bouton "Radio"/"Mix" de youtube.com, réutilisé
+// comme source fiable de lecture en continu — pas d'API tierce, pas de
+// client YouTube Music séparé à maintenir.
+export async function getRadioQueue(videoId: string): Promise<VideoSummary[]> {
+  const data = await webPost('next', {
+    context: webClientContext(),
+    videoId,
+    playlistId: `RD${videoId}`,
+    contentCheckOk: true,
+    racyCheckOk: true,
+  });
+  return findAll(data, 'playlistPanelVideoRenderer')
+    .map(parsePlaylistPanelVideoRenderer)
+    .filter((v): v is VideoSummary => v !== null);
+}
+
 export interface VideoInfo {
   title: string;
   description: string;
