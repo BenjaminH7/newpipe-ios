@@ -1,12 +1,10 @@
-// Hooks React au-dessus des collections musicales (albums / playlists
-// enregistrés, playlists locales), même pattern que useMusicLibrary.
+// Hooks React au-dessus des collections musicales (albums et playlists
+// YouTube Music enregistrés), même pattern que useMusicLibrary.
 import { useEffect, useState } from 'react';
 import type { ListStore } from '@/storage/listStore';
 import {
-  localPlaylistsStore,
   savedAlbumsStore,
   savedPlaylistsStore,
-  type LocalPlaylist,
   type SavedAlbum,
   type SavedPlaylist,
 } from '@/storage/musicCollections';
@@ -39,13 +37,4 @@ export function useSavedPlaylists(): SavedPlaylist[] {
 export function useIsPlaylistSaved(playlistId: string | null): boolean {
   const playlists = useSavedPlaylists();
   return playlistId !== null && playlists.some((p) => p.playlistId === playlistId);
-}
-
-export function useLocalPlaylists(): LocalPlaylist[] {
-  return useListStore(localPlaylistsStore);
-}
-
-export function useLocalPlaylist(id: string | null): LocalPlaylist | null {
-  const playlists = useLocalPlaylists();
-  return playlists.find((p) => p.id === id) ?? null;
 }

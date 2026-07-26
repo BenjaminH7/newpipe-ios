@@ -59,7 +59,6 @@ function RootLayoutContent() {
             <Stack.Screen name="music/browse" options={{ title: '' }} />
             <Stack.Screen name="music/mood" options={{ title: '' }} />
             <Stack.Screen name="music/explore" options={{ title: 'Explorer' }} />
-            <Stack.Screen name="music/local-playlist" options={{ title: 'Playlist' }} />
             <Stack.Screen name="music/releases" options={{ title: 'Nouveautés' }} />
             <Stack.Screen name="history" options={{ title: 'Historique' }} />
             <Stack.Screen name="settings" options={{ title: 'Réglages' }} />

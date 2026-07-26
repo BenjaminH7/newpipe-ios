@@ -1,8 +1,8 @@
 // Menu contextuel d'un titre, façon YouTube Music / Metrolist : feuille qui
 // remonte du bas avec les actions de file (« Lire ensuite », « Ajouter à la
-// file »), la radio, la bibliothèque, les playlists locales et les raccourcis
-// vers l'album et l'artiste. Exposé par un provider pour que n'importe quel
-// écran puisse l'ouvrir avec showSongMenu(song).
+// file »), la radio, la bibliothèque et les raccourcis vers l'album et
+// l'artiste. Exposé par un provider pour que n'importe quel écran puisse
+// l'ouvrir avec showSongMenu(song).
 import {
   createContext,
   useCallback,
@@ -12,17 +12,15 @@ import {
   type ComponentProps,
   type ReactNode,
 } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { artistNames, songToTrack } from '@/api/ytmusic/convert';
 import type { YTSong } from '@/api/ytmusic/types';
-import { useLocalPlaylists } from '@/hooks/useMusicCollections';
 import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { useIsInMusicLibrary, useToggleTrackInLibrary } from '@/hooks/useMusicLibrary';
 import { usePlayer } from '@/player/PlayerContext';
-import { addTrackToLocalPlaylist, createLocalPlaylist } from '@/storage/musicCollections';
 import { useTheme, type ColorPalette } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -58,24 +56,15 @@ function SongMenuSheet({ song, onClose }: { song: YTSong | null; onClose: () => 
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { playTrackRadio, enqueueNext, enqueueLast } = usePlayer();
   const { openAlbum, openArtist } = useMusicNavigation();
-  const playlists = useLocalPlaylists();
   const toggleTrack = useToggleTrackInLibrary();
   const isLiked = useIsInMusicLibrary(song?.id ?? '');
-  const [pickingPlaylist, setPickingPlaylist] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
-
-  const close = useCallback(() => {
-    setPickingPlaylist(false);
-    setNewPlaylistName('');
-    onClose();
-  }, [onClose]);
 
   const run = useCallback(
     (action: () => void) => {
       action();
-      close();
+      onClose();
     },
-    [close],
+    [onClose],
   );
 
   if (!song) return null;
@@ -83,8 +72,8 @@ function SongMenuSheet({ song, onClose }: { song: YTSong | null; onClose: () => 
   const artist = song.artists.find((a) => a.id);
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={close}>
-      <Pressable style={styles.backdrop} onPress={close} />
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.grabber} />
         <View style={styles.headerRow}>
@@ -100,92 +89,42 @@ function SongMenuSheet({ song, onClose }: { song: YTSong | null; onClose: () => 
         </View>
 
         <ScrollView style={styles.actions} showsVerticalScrollIndicator={false}>
-          {pickingPlaylist ? (
-            <>
-              <View style={styles.newPlaylistRow}>
-                <TextInput
-                  value={newPlaylistName}
-                  onChangeText={setNewPlaylistName}
-                  placeholder="Nouvelle playlist..."
-                  placeholderTextColor={colors.muted}
-                  style={styles.newPlaylistInput}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (!newPlaylistName.trim()) return;
-                    createLocalPlaylist(newPlaylistName).then((p) =>
-                      addTrackToLocalPlaylist(p.id, track),
-                    );
-                    close();
-                  }}
-                />
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => {
-                    if (!newPlaylistName.trim()) return;
-                    createLocalPlaylist(newPlaylistName).then((p) =>
-                      addTrackToLocalPlaylist(p.id, track),
-                    );
-                    close();
-                  }}
-                >
-                  <Ionicons name="add-circle" size={28} color={colors.accent} />
-                </Pressable>
-              </View>
-              {playlists.map((playlist) => (
-                <MenuRow
-                  key={playlist.id}
-                  icon="list"
-                  label={playlist.name}
-                  detail={`${playlist.tracks.length} titre${playlist.tracks.length > 1 ? 's' : ''}`}
-                  onPress={() => run(() => void addTrackToLocalPlaylist(playlist.id, track))}
-                />
-              ))}
-            </>
-          ) : (
-            <>
-              <MenuRow
-                icon="play-forward"
-                label="Lire ensuite"
-                onPress={() => run(() => enqueueNext(track))}
-              />
-              <MenuRow
-                icon="albums-outline"
-                label="Ajouter à la file"
-                onPress={() => run(() => enqueueLast(track))}
-              />
-              <MenuRow
-                icon="radio-outline"
-                label="Lancer la radio"
-                onPress={() => run(() => playTrackRadio(track))}
-              />
-              <MenuRow
-                icon={isLiked ? 'heart' : 'heart-outline'}
-                label={isLiked ? 'Retirer des titres likés' : 'Ajouter aux titres likés'}
-                highlighted={isLiked}
-                onPress={() => run(() => toggleTrack(track))}
-              />
-              <MenuRow
-                icon="add-circle-outline"
-                label="Ajouter à une playlist"
-                onPress={() => setPickingPlaylist(true)}
-              />
-              {song.album && (
-                <MenuRow
-                  icon="disc-outline"
-                  label="Voir l'album"
-                  detail={song.album.name}
-                  onPress={() => run(() => openAlbum(song.album!.id, song.album!.name))}
-                />
-              )}
-              {artist?.id && (
-                <MenuRow
-                  icon="person-outline"
-                  label="Voir l'artiste"
-                  detail={artist.name}
-                  onPress={() => run(() => openArtist(artist.id!, artist.name))}
-                />
-              )}
-            </>
+          <MenuRow
+            icon="play-forward"
+            label="Lire ensuite"
+            onPress={() => run(() => enqueueNext(track))}
+          />
+          <MenuRow
+            icon="albums-outline"
+            label="Ajouter à la file"
+            onPress={() => run(() => enqueueLast(track))}
+          />
+          <MenuRow
+            icon="radio-outline"
+            label="Lancer la radio"
+            onPress={() => run(() => playTrackRadio(track))}
+          />
+          <MenuRow
+            icon={isLiked ? 'heart' : 'heart-outline'}
+            label={isLiked ? 'Retirer des titres likés' : 'Ajouter aux titres likés'}
+            highlighted={isLiked}
+            onPress={() => run(() => toggleTrack(track))}
+          />
+          {song.album && (
+            <MenuRow
+              icon="disc-outline"
+              label="Voir l'album"
+              detail={song.album.name}
+              onPress={() => run(() => openAlbum(song.album!.id, song.album!.name))}
+            />
+          )}
+          {artist?.id && (
+            <MenuRow
+              icon="person-outline"
+              label="Voir l'artiste"
+              detail={artist.name}
+              onPress={() => run(() => openArtist(artist.id!, artist.name))}
+            />
           )}
         </ScrollView>
       </View>
@@ -303,22 +242,6 @@ function createStyles(colors: ColorPalette) {
     menuDetail: {
       color: colors.muted,
       fontSize: 12,
-    },
-    newPlaylistRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-    },
-    newPlaylistInput: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      color: colors.text,
-      fontSize: 15,
     },
   });
 }

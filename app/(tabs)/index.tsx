@@ -2,7 +2,7 @@
 // filtrage, carrousels personnalisés servis par InnerTube (FEmusic_home) et
 // raccourcis vers la bibliothèque. Le contenu vient du catalogue en ligne, la
 // lecture passe par le lecteur global de l'app.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,7 +12,7 @@ import type { HomeChip, MusicHomePage, MusicSection, YTItem, YTSong } from '@/ap
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { SectionCarousel } from '@/components/music/SectionCarousel';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { ErrorView, LoadingView } from '@/components/StatusView';
+import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { useSongMenu } from '@/components/music/SongMenu';
@@ -35,18 +35,29 @@ export default function MusicHomeScreen() {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<MusicHomePage | null>(null);
+  // Les chips vivent hors de `page` : une page filtrée peut en renvoyer moins
+  // (ou aucun), et la barre ne doit jamais disparaître — sinon impossible de
+  // revenir à "Tout" une fois un filtre appliqué.
+  const [chips, setChips] = useState<HomeChip[]>([]);
   const [activeChip, setActiveChip] = useState<HomeChip | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Jeton anti-course : deux chips enchaînés peuvent revenir dans le désordre.
+  const requestRef = useRef(0);
+
   const load = useCallback(async (chip: HomeChip | null) => {
+    const token = ++requestRef.current;
     setStatus('loading');
     setError(null);
     try {
       const result = await getMusicHome(chip ? { params: chip.params } : undefined);
+      if (requestRef.current !== token) return;
       setPage(result);
+      if (result.chips.length > 0) setChips(result.chips);
       setStatus('ready');
     } catch (e) {
+      if (requestRef.current !== token) return;
       setError(e instanceof Error ? e.message : 'Impossible de charger l’accueil.');
       setStatus('error');
     }
@@ -58,9 +69,12 @@ export default function MusicHomeScreen() {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
+    const token = ++requestRef.current;
     try {
       const result = await getMusicHome(activeChip ? { params: activeChip.params } : undefined);
+      if (requestRef.current !== token) return;
       setPage(result);
+      if (result.chips.length > 0) setChips(result.chips);
       setStatus('ready');
     } catch {
       // Rafraîchissement best-effort : on garde le contenu déjà affiché.
@@ -88,12 +102,14 @@ export default function MusicHomeScreen() {
     }
   }, [page?.continuation, loadingMore]);
 
+  // Re-toucher le chip actif le désélectionne, comme sur music.youtube.com.
   const selectChip = useCallback(
     (chip: HomeChip | null) => {
-      setActiveChip(chip);
-      load(chip);
+      const next = chip && chip.params === activeChip?.params ? null : chip;
+      setActiveChip(next);
+      load(next);
     },
-    [load],
+    [activeChip, load],
   );
 
   const playSong = useCallback(
@@ -167,7 +183,7 @@ export default function MusicHomeScreen() {
         }
       />
 
-      {page && page.chips.length > 0 && (
+      {chips.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -175,7 +191,7 @@ export default function MusicHomeScreen() {
           style={styles.chipsScroll}
         >
           <Chip label="Tout" active={activeChip === null} onPress={() => selectChip(null)} />
-          {page.chips.map((chip) => (
+          {chips.map((chip) => (
             <Chip
               key={chip.params}
               label={chip.title}
@@ -188,7 +204,18 @@ export default function MusicHomeScreen() {
 
       {status === 'loading' && <LoadingView label="Chargement de YouTube Music..." />}
       {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(activeChip)} />}
-      {status === 'ready' && page && (
+      {status === 'ready' && page?.sections.length === 0 && (
+        <EmptyView
+          icon="albums-outline"
+          title="Rien à afficher"
+          message={
+            activeChip
+              ? `Aucun contenu pour « ${activeChip.title} ». Reviens sur "Tout" pour l’accueil complet.`
+              : 'L’accueil YouTube Music n’a rien renvoyé. Réessaie dans un instant.'
+          }
+        />
+      )}
+      {status === 'ready' && page && page.sections.length > 0 && (
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}

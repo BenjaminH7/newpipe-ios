@@ -294,6 +294,35 @@ export function parseTwoRowItem(r: any): YTItem | null {
 }
 
 // ---------------------------------------------------------------------------
+// musicMultiRowListItemRenderer : rangée d'épisode (podcasts). L'accueil filtré
+// par le chip "Podcasts" ne renvoie que ce renderer : sans lui, la page revient
+// entièrement vide. Un épisode se lit comme un titre ordinaire (videoId).
+
+export function parseMultiRowItem(r: any): YTSong | null {
+  if (!r) return null;
+  const videoId = r.onTap?.watchEndpoint?.videoId ?? null;
+  const title = firstRunText(r.title);
+  if (!videoId || !title) return null;
+  // secondTitle = nom de l'émission, subtitle = date de publication. Le
+  // browseId de l'émission est un MPSPPL... (page podcast), pas une chaîne :
+  // on ne le garde que s'il pointe vraiment vers un artiste, sinon "aller à
+  // l'artiste" ouvrirait une page introuvable.
+  const showRuns = runsOf(r.secondTitle);
+  const show = showRuns[0]?.text?.trim();
+  const showId = browseIdOf(showRuns[0]?.navigationEndpoint);
+  return {
+    type: 'song',
+    id: videoId,
+    title,
+    artists: show ? [{ name: show, id: showId?.startsWith('UC') ? showId : null }] : [],
+    album: null,
+    duration: -1,
+    thumbnail: lastThumbnail(r.thumbnail),
+    explicit: false,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // playlistPanelVideoRenderer : entrée de file de lecture (endpoint next)
 
 export function parseQueueItem(r: any): YTSong | null {
@@ -320,7 +349,8 @@ function parseShelfItems(contents: any[]): YTItem[] {
   for (const c of contents ?? []) {
     const parsed =
       parseTwoRowItem(c?.musicTwoRowItemRenderer) ??
-      parseListItem(c?.musicResponsiveListItemRenderer);
+      parseListItem(c?.musicResponsiveListItemRenderer) ??
+      parseMultiRowItem(c?.musicMultiRowListItemRenderer);
     if (parsed) items.push(parsed);
   }
   return items;

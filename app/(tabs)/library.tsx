@@ -13,15 +13,10 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useFollowedArtists } from '@/hooks/useFollowedArtists';
-import {
-  useLocalPlaylists,
-  useSavedAlbums,
-  useSavedPlaylists,
-} from '@/hooks/useMusicCollections';
+import { useSavedAlbums, useSavedPlaylists } from '@/hooks/useMusicCollections';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { usePlayer } from '@/player/PlayerContext';
-import { createLocalPlaylist } from '@/storage/musicCollections';
 import { useTheme, type ColorPalette } from '@/theme';
 
 type Tab = 'songs' | 'albums' | 'artists' | 'playlists';
@@ -45,14 +40,11 @@ export default function LibraryScreen() {
   const albums = useSavedAlbums();
   const artists = useFollowedArtists();
   const savedPlaylists = useSavedPlaylists();
-  const localPlaylists = useLocalPlaylists();
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
 
   const [tab, setTab] = useState<Tab>('songs');
   const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
 
   const matches = useCallback(
     (...fields: (string | null | undefined)[]) => {
@@ -68,14 +60,6 @@ export default function LibraryScreen() {
     [tracks, matches],
   );
 
-  const submitNewPlaylist = useCallback(() => {
-    const name = newName.trim();
-    if (!name) return;
-    createLocalPlaylist(name);
-    setNewName('');
-    setCreating(false);
-  }, [newName]);
-
   const subtitle = useMemo(() => {
     switch (tab) {
       case 'songs':
@@ -85,29 +69,13 @@ export default function LibraryScreen() {
       case 'artists':
         return `${artists.length} artiste${artists.length > 1 ? 's' : ''}`;
       case 'playlists':
-        return `${localPlaylists.length + savedPlaylists.length} playlist${
-          localPlaylists.length + savedPlaylists.length > 1 ? 's' : ''
-        }`;
+        return `${savedPlaylists.length} playlist${savedPlaylists.length > 1 ? 's' : ''}`;
     }
-  }, [tab, tracks.length, albums.length, artists.length, localPlaylists.length, savedPlaylists.length]);
+  }, [tab, tracks.length, albums.length, artists.length, savedPlaylists.length]);
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Bibliothèque"
-        subtitle={subtitle}
-        right={
-          tab === 'playlists' ? (
-            <Pressable
-              hitSlop={8}
-              onPress={() => setCreating((v) => !v)}
-              accessibilityLabel="Nouvelle playlist"
-            >
-              <Ionicons name={creating ? 'close' : 'add'} size={28} color={colors.text} />
-            </Pressable>
-          ) : undefined
-        }
-      />
+      <ScreenHeader title="Bibliothèque" subtitle={subtitle} />
 
       <View style={styles.tabsRow}>
         {TABS.map((t) => (
@@ -124,24 +92,6 @@ export default function LibraryScreen() {
           </Pressable>
         ))}
       </View>
-
-      {creating && tab === 'playlists' && (
-        <View style={styles.createRow}>
-          <TextInput
-            value={newName}
-            onChangeText={setNewName}
-            placeholder="Nom de la playlist"
-            placeholderTextColor={colors.muted}
-            style={styles.createInput}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={submitNewPlaylist}
-          />
-          <Pressable hitSlop={8} onPress={submitNewPlaylist}>
-            <Ionicons name="checkmark-circle" size={30} color={colors.accent} />
-          </Pressable>
-        </View>
-      )}
 
       <View style={styles.searchBar}>
         <View style={styles.searchField}>
