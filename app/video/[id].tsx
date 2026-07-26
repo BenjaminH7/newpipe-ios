@@ -6,10 +6,13 @@ import { useLocalSearchParams } from 'expo-router';
 import { getProductPlacementSegments, type ProductPlacementSegment } from '@/api/sponsorblock';
 import { getVideoInfo, type PlayableSource, type VideoInfo } from '@/api/youtube';
 import { PlayableVideoView } from '@/components/PlayableVideoView';
+import { QuotaBlockedView } from '@/components/QuotaBlockedView';
 import { useIsInMusicLibrary, useToggleMusicTrack } from '@/hooks/useMusicLibrary';
 import { useIsVideoSaved, useToggleSavedVideo } from '@/hooks/useSavedVideos';
 import { useIsChannelSubscribed, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
-import { useSkipProductPlacements } from '@/hooks/useSettings';
+import { useSkipProductPlacements, useVideoQuotaMinutes } from '@/hooks/useSettings';
+import { useVideoQuotaExceeded } from '@/hooks/useUsageQuota';
+import { addVideoWatchSeconds } from '@/storage/usageQuota';
 import { getVideoProgress, loadWatchProgress, saveWatchProgress } from '@/storage/watchProgress';
 import { colors, sharedStyles } from '@/theme';
 import { formatDuration, formatFullCount, formatUploadDate, formatViews } from '@/utils/format';
@@ -42,6 +45,8 @@ export default function VideoDetailScreen() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [segments, setSegments] = useState<ProductPlacementSegment[]>([]);
   const [skipEnabled, setSkipEnabled] = useSkipProductPlacements();
+  const [videoQuotaMinutes] = useVideoQuotaMinutes();
+  const videoQuotaExceeded = useVideoQuotaExceeded();
 
   const load = useCallback(async () => {
     setFetchState('loading');
@@ -80,12 +85,21 @@ export default function VideoDetailScreen() {
   const positionRef = useRef(0);
   const durationRef = useRef(0);
   const lastSaveRef = useRef(0);
+  // Horloge murale du dernier tick, pour cumuler le temps de lecture réel
+  // (quota quotidien) sans être faussé par un seek ou un retour d'arrière-plan.
+  const quotaTickRef = useRef<number | null>(null);
 
   const handleProgress = useCallback(
     (position: number, duration: number) => {
       positionRef.current = position;
       durationRef.current = duration;
       const now = Date.now();
+
+      if (quotaTickRef.current !== null) {
+        addVideoWatchSeconds(id, (now - quotaTickRef.current) / 1000);
+      }
+      quotaTickRef.current = now;
+
       if (now - lastSaveRef.current >= PROGRESS_SAVE_INTERVAL_MS) {
         lastSaveRef.current = now;
         saveWatchProgress(id, position, duration);
@@ -98,6 +112,7 @@ export default function VideoDetailScreen() {
     positionRef.current = 0;
     durationRef.current = 0;
     lastSaveRef.current = 0;
+    quotaTickRef.current = null;
     return () => {
       if (durationRef.current > 0) {
         saveWatchProgress(id, positionRef.current, durationRef.current);
@@ -153,7 +168,13 @@ export default function VideoDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {fetchState === 'ready' && !playbackUnavailable && playable ? (
+      {videoQuotaExceeded ? (
+        <View style={styles.playerFallback}>
+          <QuotaBlockedView
+            message={`Tu as atteint ta limite de lecture vidéo pour aujourd'hui (${videoQuotaMinutes} min ou 3 vidéos). Reviens demain !`}
+          />
+        </View>
+      ) : fetchState === 'ready' && !playbackUnavailable && playable ? (
         <PlayableVideoView
           key={id}
           source={playable}

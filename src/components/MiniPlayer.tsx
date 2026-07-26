@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
 import { colors, sharedStyles } from '@/theme';
 
@@ -14,8 +15,9 @@ import { colors, sharedStyles } from '@/theme';
 export function MiniPlayer() {
   const router = useRouter();
   const { currentTrack, isPlaying, isBuffering, togglePlay, playNext } = usePlayer();
+  const musicQuotaExceeded = useMusicQuotaExceeded();
 
-  if (!currentTrack) return null;
+  if (!currentTrack || musicQuotaExceeded) return null;
 
   return (
     <Pressable style={styles.container} onPress={() => router.push('/music/player')}>

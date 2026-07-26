@@ -43,3 +43,25 @@ export function useThemeMode(): [ThemeMode, (value: ThemeMode) => void] {
 
   return [mode, setThemeMode];
 }
+
+export function useVideoQuotaMinutes(): [number, (value: number) => void] {
+  const [minutes, setMinutes] = useState(getSettingsSync().videoQuotaMinutes);
+
+  useEffect(() => {
+    loadSettings().then((s) => setMinutes(s.videoQuotaMinutes));
+    return subscribeSettings((s) => setMinutes(s.videoQuotaMinutes));
+  }, []);
+
+  return [minutes, setVideoQuotaMinutes];
+}
+
+export function useMusicQuotaMinutes(): [number, (value: number) => void] {
+  const [minutes, setMinutes] = useState(getSettingsSync().musicQuotaMinutes);
+
+  useEffect(() => {
+    loadSettings().then((s) => setMinutes(s.musicQuotaMinutes));
+    return subscribeSettings((s) => setMinutes(s.musicQuotaMinutes));
+  }, []);
+
+  return [minutes, setMusicQuotaMinutes];
+}

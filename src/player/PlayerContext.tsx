@@ -9,8 +9,10 @@ import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { getVideoInfo } from '@/api/youtube';
+import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { getLocalAudioUri } from '@/storage/musicDownloads';
 import type { MusicTrack } from '@/storage/musicLibrary';
+import { addMusicListenSeconds } from '@/storage/usageQuota';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -23,6 +25,8 @@ interface PlayerContextValue {
   duration: number;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Secondes restantes avant la mise en pause automatique, ou `null` si désactivée. */
+  sleepTimerRemaining: number | null;
   playTrack: (track: MusicTrack, queue: MusicTrack[]) => void;
   togglePlay: () => void;
   playNext: () => void;
@@ -30,6 +34,8 @@ interface PlayerContextValue {
   seekTo: (seconds: number) => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
+  /** `minutes` = délai avant pause automatique, `null` pour désactiver la minuterie. */
+  setSleepTimer: (minutes: number | null) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -57,6 +63,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>('off');
+  const [sleepTimerEndsAt, setSleepTimerEndsAt] = useState<number | null>(null);
+  const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
@@ -88,8 +96,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     positionRef.current = position;
   }, [position]);
 
+  // Quota d'écoute quotidien : une fois dépassé, on bloque le démarrage de
+  // nouvelles pistes et on coupe la lecture en cours (voir effet plus bas).
+  const musicQuotaExceeded = useMusicQuotaExceeded();
+  const musicQuotaExceededRef = useRef(musicQuotaExceeded);
+  useEffect(() => {
+    musicQuotaExceededRef.current = musicQuotaExceeded;
+  }, [musicQuotaExceeded]);
+  // Horloge murale du dernier tick, pour cumuler le temps d'écoute réel sans
+  // être faussé par un changement de piste ou un retour d'arrière-plan.
+  const quotaTickRef = useRef<number | null>(null);
+
   const loadAndPlay = useCallback(
     async (track: MusicTrack) => {
+      if (musicQuotaExceededRef.current) return;
+      quotaTickRef.current = null;
       setCurrentTrack(track);
       setIsBuffering(true);
       setPosition(0);
@@ -171,7 +192,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => {
     if (!currentTrackRef.current) return;
     if (player.playing) player.pause();
-    else player.play();
+    else if (!musicQuotaExceededRef.current) player.play();
   }, [player]);
 
   const seekTo = useCallback(
@@ -188,6 +209,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setSleepTimer = useCallback((minutes: number | null) => {
+    setSleepTimerEndsAt(minutes ? Date.now() + minutes * 60_000 : null);
+  }, []);
+
+  // Minuterie de mise en veille : décompte à la seconde, coupe la lecture
+  // (sans changer de piste) quand l'échéance est atteinte.
+  useEffect(() => {
+    if (!sleepTimerEndsAt) {
+      setSleepTimerRemaining(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.round((sleepTimerEndsAt - Date.now()) / 1000);
+      if (remaining <= 0) {
+        player.pause();
+        setSleepTimerEndsAt(null);
+        setSleepTimerRemaining(null);
+      } else {
+        setSleepTimerRemaining(remaining);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [sleepTimerEndsAt, player]);
+
   useEffect(() => {
     const playToEndSub = player.addListener('playToEnd', () => {
       if (repeatRef.current === 'one') {
@@ -203,6 +250,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const timeSub = player.addListener('timeUpdate', ({ currentTime }) => {
       setPosition(currentTime);
       if (player.duration > 0) setDuration(player.duration);
+
+      const now = Date.now();
+      if (quotaTickRef.current !== null) {
+        addMusicListenSeconds((now - quotaTickRef.current) / 1000);
+      }
+      quotaTickRef.current = now;
     });
 
     return () => {
@@ -212,6 +265,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player]);
+
+  // Dès que le quota bascule en dépassé (y compris en cours de lecture), on
+  // coupe le son : le blocage ne doit pas attendre une action de l'utilisateur.
+  useEffect(() => {
+    if (musicQuotaExceeded) player.pause();
+  }, [musicQuotaExceeded, player]);
 
   const value = useMemo<PlayerContextValue>(
     () => ({
@@ -223,6 +282,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       duration,
       shuffle,
       repeat,
+      sleepTimerRemaining,
       playTrack,
       togglePlay,
       playNext,
@@ -230,6 +290,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       seekTo,
       toggleShuffle,
       cycleRepeat,
+      setSleepTimer,
     }),
     [
       currentTrack,
@@ -240,6 +301,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       duration,
       shuffle,
       repeat,
+      sleepTimerRemaining,
       playTrack,
       togglePlay,
       playNext,
@@ -247,6 +309,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       seekTo,
       toggleShuffle,
       cycleRepeat,
+      setSleepTimer,
     ],
   );
 
