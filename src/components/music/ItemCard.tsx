@@ -12,6 +12,18 @@ import { ExplicitBadge } from './ExplicitBadge';
 
 export const CARD_WIDTH = 148;
 
+/** Identité stable d'un élément du catalogue, quel que soit son type. */
+export function itemKey(item: YTItem): string {
+  switch (item.type) {
+    case 'song':
+      return `song-${item.id}`;
+    case 'playlist':
+      return `playlist-${item.playlistId}`;
+    default:
+      return `${item.type}-${item.browseId}`;
+  }
+}
+
 export function itemSubtitle(item: YTItem): string {
   switch (item.type) {
     case 'song':

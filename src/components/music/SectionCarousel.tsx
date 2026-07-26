@@ -8,7 +8,7 @@ import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import type { MusicSection, YTItem, YTSong } from '@/api/ytmusic/types';
 import { useTheme, type ColorPalette } from '@/theme';
-import { CARD_WIDTH, ItemCard } from './ItemCard';
+import { CARD_WIDTH, ItemCard, itemKey } from './ItemCard';
 import { SongRow } from './SongRow';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -111,7 +111,7 @@ export function SectionCarousel({
         >
           {section.items.map((item, index) => (
             <ItemCard
-              key={`${item.type}-${item.type === 'song' ? item.id : item.type === 'artist' ? item.browseId : item.type === 'album' ? item.browseId : item.playlistId}-${index}`}
+              key={`${itemKey(item)}-${index}`}
               item={item}
               width={CARD_WIDTH}
               onPress={() =>

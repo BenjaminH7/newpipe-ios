@@ -8,7 +8,7 @@ import { getArtistItems } from '@/api/ytmusic/client';
 import { songToTrack, songsToTracks } from '@/api/ytmusic/convert';
 import type { YTItem, YTSong } from '@/api/ytmusic/types';
 import { MiniPlayer } from '@/components/MiniPlayer';
-import { CARD_WIDTH, ItemCard } from '@/components/music/ItemCard';
+import { CARD_WIDTH, ItemCard, itemKey } from '@/components/music/ItemCard';
 import { SongRow } from '@/components/music/SongRow';
 import { useSongMenu } from '@/components/music/SongMenu';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
@@ -80,15 +80,7 @@ export default function BrowseScreen() {
           data={items}
           numColumns={songsOnly ? 1 : COLUMNS}
           columnWrapperStyle={songsOnly ? undefined : styles.column}
-          keyExtractor={(item, index) =>
-            `${item.type}-${
-              item.type === 'song'
-                ? item.id
-                : item.type === 'playlist'
-                  ? item.playlistId
-                  : item.browseId
-            }-${index}`
-          }
+          keyExtractor={(item, index) => `${itemKey(item)}-${index}`}
           contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={<EmptyView message="Rien à afficher ici." />}

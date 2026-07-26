@@ -26,7 +26,7 @@ import {
 import { songToTrack, songsToTracks } from '@/api/ytmusic/convert';
 import type { YTItem, YTSong } from '@/api/ytmusic/types';
 import { MiniPlayer } from '@/components/MiniPlayer';
-import { itemSubtitle } from '@/components/music/ItemCard';
+import { itemKey, itemSubtitle } from '@/components/music/ItemCard';
 import { SongRow } from '@/components/music/SongRow';
 import { useSongMenu } from '@/components/music/SongMenu';
 import { EmptyView, ErrorView } from '@/components/StatusView';
@@ -43,18 +43,6 @@ const FILTERS: { key: MusicSearchFilter; label: string }[] = [
 ];
 
 type Status = 'idle' | 'loading' | 'error' | 'ready';
-
-/** Identité stable d'un résultat, quel que soit son type. */
-function itemKey(item: YTItem): string {
-  switch (item.type) {
-    case 'song':
-      return `song-${item.id}`;
-    case 'playlist':
-      return `playlist-${item.playlistId}`;
-    default:
-      return `${item.type}-${item.browseId}`;
-  }
-}
 
 export default function MusicSearchScreen() {
   const router = useRouter();

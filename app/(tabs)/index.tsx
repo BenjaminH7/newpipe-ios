@@ -52,10 +52,12 @@ export default function SearchScreen() {
     setError(null);
     try {
       // La recherche d'artistes ne doit pas faire échouer la recherche vidéo :
-      // en cas d'erreur Deezer on affiche simplement les vidéos seules.
+      // en cas d'erreur YouTube Music on affiche simplement les vidéos seules.
       const [res, artistResults] = await Promise.all([
         searchVideos(trimmed),
-        searchArtists(trimmed).catch(() => [] as DeezerArtist[]),
+        searchMusic(trimmed, 'artists')
+          .then((r) => r.items.filter((i): i is YTArtist => i.type === 'artist').slice(0, 10))
+          .catch(() => [] as YTArtist[]),
       ]);
       if (activeQuery.current !== trimmed) return; // une recherche plus récente a été lancée entre-temps
       setResults(dedupeById(res.items));
@@ -85,13 +87,13 @@ export default function SearchScreen() {
     }
   }, [nextpage, loadingMore, status]);
 
-  // Navigation avec l'id Deezer : l'écran artiste charge alors directement le
-  // bon profil, sans repasser par une recherche par nom ambiguë.
+  // Navigation par browseId : l'écran artiste charge directement le bon
+  // profil, sans repasser par une recherche par nom ambiguë.
   const openArtistProfile = useCallback(
-    (artist: DeezerArtist) => {
+    (artist: YTArtist) => {
       router.push({
         pathname: '/music/artist',
-        params: { artist: artist.name, artistId: String(artist.id) },
+        params: { browseId: artist.browseId, name: artist.name },
       });
     },
     [router],
@@ -160,8 +162,8 @@ export default function SearchScreen() {
                   contentContainerStyle={styles.artistsList}
                 >
                   {artists.map((artist) => (
-                    <View key={artist.id} style={styles.artistCardWrap}>
-                      <ArtistCard artist={artist} onPress={() => openArtistProfile(artist)} />
+                    <View key={artist.browseId} style={styles.artistCardWrap}>
+                      <ItemCard item={artist} width={112} onPress={() => openArtistProfile(artist)} />
                     </View>
                   ))}
                 </ScrollView>
