@@ -53,6 +53,7 @@ export default function TabsLayout() {
         name="music"
         options={{
           title: 'Musique',
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={size} color={color} />
           ),

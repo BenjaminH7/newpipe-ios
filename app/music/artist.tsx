@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,12 +6,20 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { getArtistTopTracks, searchArtist, type DeezerArtist, type DeezerTrack } from '@/api/deezer';
-import { resolveYoutubeTrack } from '@/api/musicMatch';
-import type { VideoSummary } from '@/api/youtube';
+import {
+  getArtistAlbums,
+  getArtistTopTracks,
+  searchArtist,
+  type DeezerAlbum,
+  type DeezerArtist,
+  type DeezerTrack,
+} from '@/api/deezer';
+import { toMusicTrack } from '@/api/musicMatch';
+import { AlbumCard } from '@/components/AlbumCard';
 import { ArtistTrackRow } from '@/components/ArtistTrackRow';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
+import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
 import { usePlayer } from '@/player/PlayerContext';
 import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -19,26 +27,10 @@ import { formatCount } from '@/utils/format';
 
 type SearchParams = { artist: string };
 type Status = 'loading' | 'error' | 'ready';
-type Resolution = VideoSummary | null | 'pending';
 
 const TRACKS_LIMIT = 25;
-const RESOLVE_CONCURRENCY = 3;
+const ALBUMS_LIMIT = 30;
 const PLAY_BUTTON_SIZE = 58;
-
-function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrack {
-  return {
-    id: video.id,
-    title: track.title,
-    artist: track.artist,
-    coverArtUrl: track.albumCoverUrl || video.thumbnail,
-    duration: track.duration >= 0 ? track.duration : video.duration,
-    addedAt: Date.now(),
-    localUri: null,
-    // N'est pas vraiment téléchargé : ce champ n'est consulté que par la
-    // bibliothèque musicale (src/storage/musicLibrary.ts), jamais par la lecture.
-    downloadStatus: 'downloaded',
-  };
-}
 
 export default function ArtistScreen() {
   const { artist: artistName } = useLocalSearchParams<SearchParams>();
@@ -52,16 +44,12 @@ export default function ArtistScreen() {
   const [error, setError] = useState<string | null>(null);
   const [artistInfo, setArtistInfo] = useState<DeezerArtist | null>(null);
   const [tracks, setTracks] = useState<DeezerTrack[]>([]);
-  const [resolved, setResolved] = useState<Record<number, Resolution>>({});
-  const resolvedRef = useRef(resolved);
-  useEffect(() => {
-    resolvedRef.current = resolved;
-  }, [resolved]);
+  const [albums, setAlbums] = useState<DeezerAlbum[]>([]);
+  const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
 
   const load = useCallback(async (name: string) => {
     setStatus('loading');
     setError(null);
-    setResolved({});
     try {
       const artistResult = await searchArtist(name);
       if (!artistResult) {
@@ -69,9 +57,13 @@ export default function ArtistScreen() {
         setStatus('error');
         return;
       }
-      const topTracks = await getArtistTopTracks(artistResult.id, TRACKS_LIMIT);
+      const [topTracks, artistAlbums] = await Promise.all([
+        getArtistTopTracks(artistResult.id, TRACKS_LIMIT),
+        getArtistAlbums(artistResult.id, ALBUMS_LIMIT),
+      ]);
       setArtistInfo(artistResult);
       setTracks(topTracks);
+      setAlbums(artistAlbums);
       setStatus('ready');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
@@ -83,41 +75,19 @@ export default function ArtistScreen() {
     if (artistName) load(artistName);
   }, [artistName, load]);
 
-  // Résolution en tâche de fond (petits lots concurrents) des morceaux Deezer
-  // vers leur équivalent YouTube jouable : la liste "propre" s'affiche tout de
-  // suite, la lecture se prépare pendant ce temps sans bloquer l'écran.
-  useEffect(() => {
-    if (tracks.length === 0) return;
-    let cancelled = false;
-    let nextIndex = 0;
-
-    async function worker() {
-      while (!cancelled) {
-        const i = nextIndex++;
-        if (i >= tracks.length) return;
-        const track = tracks[i];
-        if (resolvedRef.current[track.id] !== undefined) continue;
-        setResolved((prev) => ({ ...prev, [track.id]: 'pending' }));
-        const match = await resolveYoutubeTrack(track.artist, track.title, track.duration);
-        if (cancelled) return;
-        setResolved((prev) => ({ ...prev, [track.id]: match }));
-      }
-    }
-
-    for (let i = 0; i < RESOLVE_CONCURRENCY; i++) worker();
-    return () => {
-      cancelled = true;
-    };
-  }, [tracks]);
+  const openAlbum = useCallback(
+    (album: DeezerAlbum) => {
+      router.push({
+        pathname: '/music/album',
+        params: { albumId: String(album.id), title: album.title, coverUrl: album.coverUrl },
+      });
+    },
+    [router],
+  );
 
   const handlePressTrack = useCallback(
     async (track: DeezerTrack) => {
-      let video = resolvedRef.current[track.id];
-      if (!video || video === 'pending') {
-        setResolved((prev) => ({ ...prev, [track.id]: 'pending' }));
-        video = await resolveYoutubeTrack(track.artist, track.title, track.duration);
-        setResolved((prev) => ({ ...prev, [track.id]: video }));
-      }
+      const video = await resolveTrack(track);
       if (!video) return;
 
       const merged = { ...resolvedRef.current, [track.id]: video };
@@ -130,7 +100,7 @@ export default function ArtistScreen() {
 
       playTrack(toMusicTrack(video, track), queue);
     },
-    [tracks, playTrack],
+    [tracks, playTrack, resolveTrack, resolvedRef],
   );
 
   const handlePlayAll = useCallback(() => {
@@ -201,6 +171,21 @@ export default function ArtistScreen() {
                   <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
                 </Pressable>
               </View>
+
+              {albums.length > 0 && (
+                <>
+                  <Text style={[sharedStyles.text, styles.sectionLabel]}>Discographie</Text>
+                  <FlatList
+                    data={albums}
+                    horizontal
+                    keyExtractor={(item) => String(item.id)}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.albumsList}
+                    ItemSeparatorComponent={() => <View style={styles.albumSeparator} />}
+                    renderItem={({ item }) => <AlbumCard album={item} onPress={() => openAlbum(item)} />}
+                  />
+                </>
+              )}
 
               <Text style={[sharedStyles.text, styles.sectionLabel]}>Titres populaires</Text>
             </View>
@@ -346,6 +331,12 @@ function createStyles(colors: ColorPalette) {
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 8,
+    },
+    albumsList: {
+      paddingHorizontal: 20,
+    },
+    albumSeparator: {
+      width: 12,
     },
   });
 }

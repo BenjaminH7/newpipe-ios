@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { EmptyView } from '@/components/StatusView';
@@ -11,6 +13,7 @@ import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tracks = useMusicLibrary();
@@ -44,17 +47,29 @@ export default function MusicScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={[styles.topHeader, { paddingTop: insets.top + 16 }]}>
+        <Text style={styles.title}>Musique</Text>
+        {tracks.length > 0 && (
+          <Text style={sharedStyles.mutedText}>
+            {tracks.length} titre{tracks.length > 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+
       <View style={styles.searchBar}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Rechercher dans ta musique..."
-          placeholderTextColor={colors.muted}
-          style={[sharedStyles.input, styles.input]}
-          returnKeyType="search"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
+        <View style={styles.searchField}>
+          <Ionicons name="search" size={18} color={colors.muted} style={styles.searchIcon} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher dans ta musique..."
+            placeholderTextColor={colors.muted}
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </View>
       </View>
 
       {tracks.length === 0 ? (
@@ -66,6 +81,7 @@ export default function MusicScreen() {
           data={filtered}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <MusicTrackItem
               track={item}
@@ -91,17 +107,40 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    searchBar: {
-      paddingHorizontal: 12,
-      paddingTop: 12,
-      paddingBottom: 4,
+    topHeader: {
+      paddingHorizontal: 20,
+      paddingBottom: 8,
+      gap: 2,
     },
-    input: {
+    title: {
+      color: colors.text,
+      fontSize: 32,
+      fontWeight: '800',
+    },
+    searchBar: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    searchField: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      color: colors.text,
       fontSize: 15,
+      paddingVertical: 10,
     },
     list: {
-      paddingHorizontal: 12,
-      paddingTop: 8,
+      paddingHorizontal: 20,
+      paddingTop: 4,
       paddingBottom: 12,
     },
   });

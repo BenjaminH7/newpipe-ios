@@ -82,14 +82,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   pressed: {
     opacity: 0.7,
   },
   cover: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
   },
   info: {
     flex: 1,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
   },
   subRow: {

@@ -4,7 +4,9 @@
 // premiers résultats, celui dont la durée colle le mieux à la durée Deezer
 // connue — un simple titre trouvé au hasard tombe trop souvent sur un remix,
 // un live ou une compilation.
+import type { DeezerTrack } from './deezer';
 import { searchVideos, type VideoSummary } from './youtube';
+import type { MusicTrack } from '@/storage/musicLibrary';
 
 // Cache de promesses (pas seulement de résultats) : deux appelants qui
 // demandent le même morceau en même temps (résolution en tâche de fond +
@@ -46,4 +48,22 @@ export function resolveYoutubeTrack(
     .catch(() => null);
   cache.set(key, promise);
   return promise;
+}
+
+// Assemble un morceau jouable (résolu côté YouTube) et ses métadonnées
+// Deezer d'origine en un MusicTrack, format commun à la lecture et à la
+// bibliothèque musicale. Partagé par les écrans artiste et album.
+export function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrack {
+  return {
+    id: video.id,
+    title: track.title,
+    artist: track.artist,
+    coverArtUrl: track.albumCoverUrl || video.thumbnail,
+    duration: track.duration >= 0 ? track.duration : video.duration,
+    addedAt: Date.now(),
+    localUri: null,
+    // N'est pas vraiment téléchargé : ce champ n'est consulté que par la
+    // bibliothèque musicale (src/storage/musicLibrary.ts), jamais par la lecture.
+    downloadStatus: 'downloaded',
+  };
 }

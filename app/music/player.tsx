@@ -220,6 +220,9 @@ export default function MusicPlayerScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.topRow}>
+        <Text style={styles.topRowLabel} numberOfLines={1}>
+          Lecture en cours
+        </Text>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="chevron-down" size={28} color={colors.text} />
         </Pressable>
@@ -384,6 +387,17 @@ function createStyles(colors: ColorPalette) {
       justifyContent: 'space-between',
       marginBottom: 12,
     },
+    topRowLabel: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      textAlign: 'center',
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
     topRowRight: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -401,6 +415,11 @@ function createStyles(colors: ColorPalette) {
       aspectRatio: 1,
       borderRadius: 16,
       alignSelf: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      elevation: 8,
     },
     lyricsPane: {
       flex: 1,
@@ -464,9 +483,9 @@ function createStyles(colors: ColorPalette) {
       gap: 4,
     },
     title: {
-      fontSize: 20,
-      fontWeight: '700',
-      lineHeight: 26,
+      fontSize: 22,
+      fontWeight: '800',
+      lineHeight: 28,
     },
     artistLink: {
       fontWeight: '600',
@@ -520,6 +539,11 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
     },
     repeatButton: {
       width: 22,
