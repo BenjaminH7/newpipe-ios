@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { searchArtists, type DeezerArtist } from '@/api/deezer';
 import { searchVideos, searchVideosNextPage } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
-import { ArtistCard } from '@/components/ArtistCard';
+import { searchMusic } from '@/api/ytmusic/client';
+import type { YTArtist } from '@/api/ytmusic/types';
+import { ItemCard } from '@/components/music/ItemCard';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -38,7 +39,7 @@ export default function SearchScreen() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<VideoSummary[]>([]);
-  const [artists, setArtists] = useState<DeezerArtist[]>([]);
+  const [artists, setArtists] = useState<YTArtist[]>([]);
   const [nextpage, setNextpage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const activeQuery = useRef('');
