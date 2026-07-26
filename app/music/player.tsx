@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchLyrics, type LyricsLine, type LyricsResult } from '@/api/lyrics';
 import { translateLines, translateText } from '@/api/translate';
@@ -26,6 +28,13 @@ import { useTheme, type ColorPalette } from '@/theme';
 import { formatDuration } from '@/utils/format';
 
 const SLEEP_TIMER_PRESETS_MINUTES = [5, 15, 30, 45, 60];
+// Fond d'écran ambiant façon Spotify/Apple Music : la pochette elle-même,
+// très floutée et assombrie par un dégradé, sert de décor en plein cadre
+// derrière l'interface. Pas d'extraction de couleur dominante (nécessiterait
+// une lib native incompatible avec Expo Go SDK 54) : le flou d'expo-image
+// (déjà inclus, pas de dépendance native supplémentaire) donne un résultat
+// tout aussi immersif et toujours fidèle à la pochette réelle.
+const BACKDROP_BLUR_RADIUS = 60;
 
 export default function MusicPlayerScreen() {
   const router = useRouter();
@@ -218,145 +227,158 @@ export default function MusicPlayerScreen() {
   const displayPosition = isSeeking ? seekRatio * duration : position;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
-      <View style={styles.topRow}>
-        <Text style={styles.topRowLabel} numberOfLines={1}>
-          Lecture en cours
-        </Text>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-down" size={28} color={colors.text} />
-        </Pressable>
-        <View style={styles.topRowRight}>
-          <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={8}>
-            <Ionicons name={showLyrics ? 'mic' : 'mic-outline'} size={22} color={showLyrics ? colors.accent : colors.text} />
-          </Pressable>
-          {showLyrics && (
-            <Pressable onPress={() => setTranslateLyrics(!translateLyrics)} hitSlop={8}>
-              <Ionicons
-                name={translateLyrics ? 'language' : 'language-outline'}
-                size={22}
-                color={translateLyrics ? colors.accent : colors.text}
-              />
-            </Pressable>
-          )}
-          <Pressable onPress={openSleepTimerPicker} hitSlop={8}>
-            <Ionicons name="timer-outline" size={22} color={sleepTimerRemaining !== null ? colors.accent : colors.text} />
-          </Pressable>
-        </View>
-      </View>
-      {sleepTimerRemaining !== null && (
-        <Text style={styles.sleepTimerLabel}>Pause automatique dans {formatDuration(sleepTimerRemaining)}</Text>
-      )}
-
-      {showLyrics ? (
-        <View style={styles.lyricsPane}>
-          {lyricsStatus === 'loading' && <ActivityIndicator color={colors.muted} style={styles.lyricsLoading} />}
-          {lyricsStatus === 'error' && (
-            <Text style={[sharedStyles.mutedText, styles.lyricsEmpty]}>Paroles indisponibles pour cette piste.</Text>
-          )}
-          {lyricsStatus === 'ready' && lyrics?.synced && lyrics.synced.length > 0 && (
-            <FlatList
-              ref={lyricsListRef}
-              data={lyrics.synced}
-              keyExtractor={(_, i) => String(i)}
-              contentContainerStyle={styles.lyricsListContent}
-              showsVerticalScrollIndicator={false}
-              onScrollToIndexFailed={() => {}}
-              renderItem={({ item, index }) => (
-                <View style={styles.lyricsLineWrap}>
-                  <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
-                    {item.text || '♪'}
-                  </Text>
-                  {translateLyrics && syncedTranslations?.[index] && (
-                    <Text
-                      style={[
-                        styles.lyricsTranslation,
-                        index === activeLyricsLine && styles.lyricsTranslationActive,
-                      ]}
-                    >
-                      {syncedTranslations[index]}
-                    </Text>
-                  )}
-                </View>
-              )}
-            />
-          )}
-          {lyricsStatus === 'ready' && (!lyrics?.synced || lyrics.synced.length === 0) && lyrics?.plain && (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsListContent}>
-              <Text style={styles.lyricsPlainText}>{lyrics.plain}</Text>
-              {translateLyrics && plainTranslation && (
-                <>
-                  <Text style={styles.translationDivider}>Traduction</Text>
-                  <Text style={styles.lyricsPlainText}>{plainTranslation}</Text>
-                </>
-              )}
-            </ScrollView>
-          )}
-        </View>
-      ) : (
-        <Image
-          source={{ uri: currentTrack.coverArtUrl }}
-          style={[styles.cover, sharedStyles.thumbnail]}
-          contentFit="cover"
-        />
-      )}
-
-      <View style={styles.meta}>
-        <View style={styles.metaText}>
-          <Text style={[sharedStyles.text, styles.title]} numberOfLines={2}>
-            {currentTrack.title}
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <Image
+        source={{ uri: currentTrack.coverArtUrl }}
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+        blurRadius={BACKDROP_BLUR_RADIUS}
+      />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)']}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <View style={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.topRow}>
+          <Text style={styles.topRowLabel} numberOfLines={1}>
+            Lecture en cours
           </Text>
-          <Pressable
-            hitSlop={6}
-            onPress={() => router.push({ pathname: '/music/artist', params: { artist: currentTrack.artist } })}
-          >
-            <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
-              {currentTrack.artist}
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="chevron-down" size={28} color="#ffffff" />
+          </Pressable>
+          <View style={styles.topRowRight}>
+            <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={8}>
+              <Ionicons name={showLyrics ? 'mic' : 'mic-outline'} size={22} color={showLyrics ? colors.accent : '#ffffff'} />
+            </Pressable>
+            {showLyrics && (
+              <Pressable onPress={() => setTranslateLyrics(!translateLyrics)} hitSlop={8}>
+                <Ionicons
+                  name={translateLyrics ? 'language' : 'language-outline'}
+                  size={22}
+                  color={translateLyrics ? colors.accent : '#ffffff'}
+                />
+              </Pressable>
+            )}
+            <Pressable onPress={openSleepTimerPicker} hitSlop={8}>
+              <Ionicons name="timer-outline" size={22} color={sleepTimerRemaining !== null ? colors.accent : '#ffffff'} />
+            </Pressable>
+          </View>
+        </View>
+        {sleepTimerRemaining !== null && (
+          <Text style={styles.sleepTimerLabel}>Pause automatique dans {formatDuration(sleepTimerRemaining)}</Text>
+        )}
+
+        {showLyrics ? (
+          <View style={styles.lyricsPane}>
+            {lyricsStatus === 'loading' && (
+              <ActivityIndicator color="rgba(255,255,255,0.7)" style={styles.lyricsLoading} />
+            )}
+            {lyricsStatus === 'error' && (
+              <Text style={styles.lyricsEmpty}>Paroles indisponibles pour cette piste.</Text>
+            )}
+            {lyricsStatus === 'ready' && lyrics?.synced && lyrics.synced.length > 0 && (
+              <FlatList
+                ref={lyricsListRef}
+                data={lyrics.synced}
+                keyExtractor={(_, i) => String(i)}
+                contentContainerStyle={styles.lyricsListContent}
+                showsVerticalScrollIndicator={false}
+                onScrollToIndexFailed={() => {}}
+                renderItem={({ item, index }) => (
+                  <View style={styles.lyricsLineWrap}>
+                    <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
+                      {item.text || '♪'}
+                    </Text>
+                    {translateLyrics && syncedTranslations?.[index] && (
+                      <Text
+                        style={[
+                          styles.lyricsTranslation,
+                          index === activeLyricsLine && styles.lyricsTranslationActive,
+                        ]}
+                      >
+                        {syncedTranslations[index]}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              />
+            )}
+            {lyricsStatus === 'ready' && (!lyrics?.synced || lyrics.synced.length === 0) && lyrics?.plain && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsListContent}>
+                <Text style={styles.lyricsPlainText}>{lyrics.plain}</Text>
+                {translateLyrics && plainTranslation && (
+                  <>
+                    <Text style={styles.translationDivider}>Traduction</Text>
+                    <Text style={styles.lyricsPlainText}>{plainTranslation}</Text>
+                  </>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        ) : (
+          <Image source={{ uri: currentTrack.coverArtUrl }} style={styles.cover} contentFit="cover" />
+        )}
+
+        <View style={styles.meta}>
+          <View style={styles.metaText}>
+            <Text style={styles.title} numberOfLines={2}>
+              {currentTrack.title}
             </Text>
+            <Pressable
+              hitSlop={6}
+              onPress={() => router.push({ pathname: '/music/artist', params: { artist: currentTrack.artist } })}
+            >
+              <Text style={styles.artistLink} numberOfLines={1}>
+                {currentTrack.artist}
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable hitSlop={12} onPress={() => toggleTrackInLibrary(currentTrack)} style={styles.favoriteButton}>
+            <Ionicons name={isInLibrary ? 'heart' : 'heart-outline'} size={26} color={isInLibrary ? colors.accent : '#ffffff'} />
           </Pressable>
         </View>
-        <Pressable hitSlop={12} onPress={() => toggleTrackInLibrary(currentTrack)} style={styles.favoriteButton}>
-          <Ionicons name={isInLibrary ? 'heart' : 'heart-outline'} size={26} color={isInLibrary ? colors.accent : colors.text} />
-        </Pressable>
-      </View>
 
-      <View
-        ref={trackRef}
-        style={styles.progressTouchArea}
-        onLayout={handleTrackLayout}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${displayRatio * 100}%` }]} />
+        <View
+          ref={trackRef}
+          style={styles.progressTouchArea}
+          onLayout={handleTrackLayout}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${displayRatio * 100}%` }]} />
+          </View>
+          <View style={[styles.progressThumb, { left: `${displayRatio * 100}%` }]} />
         </View>
-        <View style={[styles.progressThumb, { left: `${displayRatio * 100}%` }]} />
-      </View>
-      <View style={styles.timeRow}>
-        <Text style={sharedStyles.mutedText}>{formatDuration(displayPosition)}</Text>
-        <Text style={sharedStyles.mutedText}>{formatDuration(duration)}</Text>
-      </View>
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatDuration(displayPosition)}</Text>
+          <Text style={styles.timeText}>{formatDuration(duration)}</Text>
+        </View>
 
-      <View style={styles.controlsRow}>
-        <Pressable hitSlop={12} onPress={toggleShuffle}>
-          <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : colors.muted} />
-        </Pressable>
-        <Pressable hitSlop={12} onPress={playPrevious}>
-          <Ionicons name="play-skip-back" size={30} color={colors.text} />
-        </Pressable>
-        <Pressable hitSlop={12} onPress={togglePlay} style={styles.playButton}>
-          {isBuffering ? (
-            <ActivityIndicator color={colors.accentText} />
-          ) : (
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color={colors.accentText} />
-          )}
-        </Pressable>
-        <Pressable hitSlop={12} onPress={playNext}>
-          <Ionicons name="play-skip-forward" size={30} color={colors.text} />
-        </Pressable>
-        <Pressable hitSlop={12} onPress={cycleRepeat} style={styles.repeatButton}>
-          <Ionicons name="repeat" size={22} color={repeat === 'off' ? colors.muted : colors.accent} />
-          {repeat === 'one' && <Text style={styles.repeatOneBadge}>1</Text>}
-        </Pressable>
+        <View style={styles.controlsRow}>
+          <Pressable hitSlop={12} onPress={toggleShuffle}>
+            <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : 'rgba(255,255,255,0.7)'} />
+          </Pressable>
+          <Pressable hitSlop={12} onPress={playPrevious}>
+            <Ionicons name="play-skip-back" size={30} color="#ffffff" />
+          </Pressable>
+          <Pressable hitSlop={12} onPress={togglePlay} style={styles.playButton}>
+            {isBuffering ? (
+              <ActivityIndicator color={colors.accentText} />
+            ) : (
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color={colors.accentText} />
+            )}
+          </Pressable>
+          <Pressable hitSlop={12} onPress={playNext}>
+            <Ionicons name="play-skip-forward" size={30} color="#ffffff" />
+          </Pressable>
+          <Pressable hitSlop={12} onPress={cycleRepeat} style={styles.repeatButton}>
+            <Ionicons name="repeat" size={22} color={repeat === 'off' ? 'rgba(255,255,255,0.7)' : colors.accent} />
+            {repeat === 'one' && <Text style={styles.repeatOneBadge}>1</Text>}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -367,6 +389,9 @@ function createStyles(colors: ColorPalette) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
       paddingHorizontal: 24,
     },
     empty: {
@@ -392,7 +417,7 @@ function createStyles(colors: ColorPalette) {
       left: 0,
       right: 0,
       textAlign: 'center',
-      color: colors.muted,
+      color: 'rgba(255,255,255,0.75)',
       fontSize: 11,
       fontWeight: '700',
       textTransform: 'uppercase',
@@ -415,9 +440,10 @@ function createStyles(colors: ColorPalette) {
       aspectRatio: 1,
       borderRadius: 16,
       alignSelf: 'center',
+      backgroundColor: 'rgba(255,255,255,0.08)',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.25,
+      shadowOpacity: 0.35,
       shadowRadius: 16,
       elevation: 8,
     },
@@ -428,6 +454,8 @@ function createStyles(colors: ColorPalette) {
       marginTop: 24,
     },
     lyricsEmpty: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 15,
       marginTop: 24,
       textAlign: 'center',
     },
@@ -438,16 +466,16 @@ function createStyles(colors: ColorPalette) {
       marginBottom: 20,
     },
     lyricsLine: {
-      color: colors.muted,
+      color: 'rgba(255,255,255,0.6)',
       fontSize: 23,
       fontWeight: '700',
       lineHeight: 30,
     },
     lyricsLineActive: {
-      color: colors.text,
+      color: '#ffffff',
     },
     lyricsTranslation: {
-      color: colors.muted,
+      color: 'rgba(255,255,255,0.55)',
       fontSize: 16,
       fontStyle: 'italic',
       lineHeight: 21,
@@ -459,12 +487,12 @@ function createStyles(colors: ColorPalette) {
       opacity: 1,
     },
     lyricsPlainText: {
-      color: colors.text,
+      color: '#ffffff',
       fontSize: 19,
       lineHeight: 28,
     },
     translationDivider: {
-      color: colors.muted,
+      color: 'rgba(255,255,255,0.6)',
       fontSize: 13,
       fontWeight: '700',
       textTransform: 'uppercase',
@@ -483,11 +511,14 @@ function createStyles(colors: ColorPalette) {
       gap: 4,
     },
     title: {
+      color: '#ffffff',
       fontSize: 22,
       fontWeight: '800',
       lineHeight: 28,
     },
     artistLink: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: 13,
       fontWeight: '600',
     },
     favoriteButton: {
@@ -504,7 +535,7 @@ function createStyles(colors: ColorPalette) {
     progressTrack: {
       height: 4,
       borderRadius: 2,
-      backgroundColor: colors.surface,
+      backgroundColor: 'rgba(255,255,255,0.25)',
       overflow: 'hidden',
     },
     progressFill: {
@@ -525,6 +556,10 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginTop: 6,
+    },
+    timeText: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 13,
     },
     controlsRow: {
       flexDirection: 'row',
