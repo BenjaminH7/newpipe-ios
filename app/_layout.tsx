@@ -32,13 +32,18 @@ function RootLayoutContent() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="video/[id]" options={{ title: '' }} />
+          {/* Modal classique plutôt que formSheet : les detents de formSheet
+              cassent la hauteur des enfants en flex (la pochette mesurait 0
+              et ne s'affichait pas). Le pageSheet iOS garde le glissement et
+              le swipe-down façon Spotify ; Android affiche un plein écran.
+              Fond forcé en sombre : le player est toujours sombre (pochette
+              floutée + voile noir), même en thème clair. */}
           <Stack.Screen
             name="music/player"
             options={{
               headerShown: false,
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.85],
-              sheetCornerRadius: 24,
+              presentation: 'modal',
+              contentStyle: { backgroundColor: '#121212' },
             }}
           />
           <Stack.Screen name="music/artist" options={{ headerShown: false }} />

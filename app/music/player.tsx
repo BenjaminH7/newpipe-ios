@@ -7,10 +7,12 @@ import {
   Easing,
   FlatList,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,13 +43,12 @@ const BACKDROP_BLUR_RADIUS = 60;
 export default function MusicPlayerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, sharedStyles } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  // L'écran est présenté en formSheet (85 % de la hauteur) : la feuille
-  // s'arrête sous la barre de statut sur les deux plateformes, donc pas
-  // d'inset haut à ajouter — ça créerait un grand vide au-dessus de
-  // "Lecture en cours".
-  const topPadding = 12;
+  // En pageSheet iOS, la feuille s'arrête déjà sous la barre de statut : un
+  // petit padding fixe suffit. Sur Android le modal est plein écran, il faut
+  // donc dégager la barre de statut avec l'inset système.
+  const topPadding = Platform.OS === 'android' ? insets.top + 8 : 12;
   const {
     currentTrack,
     isPlaying,
@@ -69,12 +70,13 @@ export default function MusicPlayerScreen() {
     toggleRadio,
   } = usePlayer();
   const [trackWidth, setTrackWidth] = useState(0);
-  // La pochette occupe l'espace restant entre la barre du haut et le bloc de
-  // contrôles : on mesure cette zone et on prend le plus petit côté, pour que
-  // les contrôles ne soient jamais poussés hors de la feuille, quel que soit
-  // l'écran. (Une largeur fixe débordait sur les petits appareils.)
-  const [coverArea, setCoverArea] = useState({ width: 0, height: 0 });
-  const coverSize = Math.floor(Math.min(coverArea.width, coverArea.height));
+  // Taille de pochette déterministe, calculée depuis les dimensions de la
+  // fenêtre : pleine largeur, plafonnée à 40 % de la hauteur d'écran pour que
+  // le bloc de contrôles tienne toujours. Surtout pas de mesure onLayout d'une
+  // zone flex : dans une feuille modale, cette hauteur peut s'effondrer à 0
+  // et la pochette ne s'affichait jamais.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const coverSize = Math.min(windowWidth - 48, Math.round(windowHeight * 0.4));
   const isInLibrary = useIsInMusicLibrary(currentTrack?.id ?? '');
   const toggleTrackInLibrary = useToggleTrackInLibrary();
   const [musicQuotaMinutes] = useMusicQuotaMinutes();
@@ -313,7 +315,7 @@ export default function MusicPlayerScreen() {
     return (
       <View style={[styles.container, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
-          <Ionicons name="chevron-down" size={28} color={colors.text} />
+          <Ionicons name="chevron-down" size={28} color="#ffffff" />
         </Pressable>
         <QuotaBlockedView
           message={`Tu as atteint ta limite d'écoute musicale pour aujourd'hui (${musicQuotaMinutes} min). Reviens demain !`}
@@ -326,9 +328,9 @@ export default function MusicPlayerScreen() {
     return (
       <View style={[styles.empty, { paddingTop: topPadding }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
-          <Ionicons name="chevron-down" size={26} color={colors.text} />
+          <Ionicons name="chevron-down" size={26} color="#ffffff" />
         </Pressable>
-        <Text style={sharedStyles.mutedText}>Aucune piste en cours de lecture.</Text>
+        <Text style={styles.emptyText}>Aucune piste en cours de lecture.</Text>
       </View>
     );
   }
@@ -345,8 +347,8 @@ export default function MusicPlayerScreen() {
         blurRadius={BACKDROP_BLUR_RADIUS}
       />
       <LinearGradient
-        colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)']}
-        locations={[0, 0.45, 1]}
+        colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.88)']}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
@@ -414,22 +416,12 @@ export default function MusicPlayerScreen() {
             )}
           </View>
         ) : (
-          <View
-            style={styles.coverArea}
-            onLayout={(e) =>
-              setCoverArea({
-                width: e.nativeEvent.layout.width,
-                height: e.nativeEvent.layout.height,
-              })
-            }
-          >
-            {coverSize > 0 && (
-              <Image
-                source={{ uri: currentTrack.coverArtUrl }}
-                style={[styles.cover, { width: coverSize, height: coverSize }]}
-                contentFit="cover"
-              />
-            )}
+          <View style={styles.coverArea}>
+            <Image
+              source={{ uri: currentTrack.coverArtUrl }}
+              style={[styles.cover, { width: coverSize, height: coverSize }]}
+              contentFit="cover"
+            />
           </View>
         )}
 
@@ -578,9 +570,12 @@ export default function MusicPlayerScreen() {
 
 function createStyles(colors: ColorPalette) {
   return StyleSheet.create({
+    // Le player est toujours sombre (pochette floutée + voile noir), même en
+    // thème clair — un fond clair apparaissait en gris sous le voile pendant
+    // le chargement de la pochette.
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#121212',
     },
     content: {
       flex: 1,
@@ -588,11 +583,15 @@ function createStyles(colors: ColorPalette) {
     },
     empty: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#121212',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
       paddingHorizontal: 24,
+    },
+    emptyText: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 14,
     },
     closeButton: {
       alignSelf: 'center',
