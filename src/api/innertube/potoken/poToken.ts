@@ -1,4 +1,9 @@
-// Port TypeScript de PoTokenWebView.kt + PoTokenProviderImpl.kt (NewPipe) :
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Port TypeScript de PoTokenWebView.kt + PoTokenProviderImpl.kt, Copyright (C)
+// the NewPipe Authors (github.com/TeamNewPipe/NewPipe), licensed
+// GPL-3.0-or-later. Comme le reste de youtubeclient, ce fichier est distribué
+// sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
 // obtient un poToken (jeton d'attestation "BotGuard") pour le client WEB, en
 // exécutant le vrai challenge de Google dans la WebView (voir jsEngine.ts).
 import {

@@ -6,7 +6,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { getProductPlacementSegments, type ProductPlacementSegment } from '@/api/sponsorblock';
 import { getVideoInfo, type PlayableSource, type VideoInfo } from '@/api/youtube';
 import { PlayableVideoView } from '@/components/PlayableVideoView';
+import { useIsInMusicLibrary, useToggleMusicTrack } from '@/hooks/useMusicLibrary';
 import { useIsVideoSaved, useToggleSavedVideo } from '@/hooks/useSavedVideos';
+import { useIsChannelSubscribed, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
 import { useSkipProductPlacements } from '@/hooks/useSettings';
 import { getVideoProgress, loadWatchProgress, saveWatchProgress } from '@/storage/watchProgress';
 import { colors, sharedStyles } from '@/theme';
@@ -20,6 +22,7 @@ type SearchParams = {
   id: string;
   title?: string;
   thumbnail?: string;
+  channelId?: string;
   channelName?: string;
   channelAvatar?: string;
   uploadedDate?: string;
@@ -103,6 +106,7 @@ export default function VideoDetailScreen() {
   }, [id]);
 
   const title = info?.title ?? params.title ?? '';
+  const channelId = info?.uploaderId || params.channelId || '';
   const channelName = info?.uploader ?? params.channelName ?? '';
   const channelAvatar = info?.uploaderAvatar ?? params.channelAvatar ?? null;
   const views = info?.views ?? (params.views ? Number(params.views) : -1);
@@ -117,12 +121,35 @@ export default function VideoDetailScreen() {
       id,
       title,
       thumbnail: thumbnail ?? info?.thumbnailUrl ?? '',
+      channelId: channelId || null,
       channelName,
       channelAvatar,
       uploadedDate: uploadedDateLabel,
       duration,
       views,
     });
+
+  const inMusic = useIsInMusicLibrary(id);
+  const toggleMusic = useToggleMusicTrack();
+  const handleToggleMusic = () =>
+    toggleMusic({
+      id,
+      title,
+      thumbnail: thumbnail ?? info?.thumbnailUrl ?? '',
+      channelId: channelId || null,
+      channelName,
+      channelAvatar,
+      uploadedDate: uploadedDateLabel,
+      duration,
+      views,
+    });
+
+  const subscribed = useIsChannelSubscribed(channelId);
+  const toggleSubscription = useToggleChannelSubscription();
+  const handleToggleSubscription = () => {
+    if (!channelId) return;
+    toggleSubscription({ id: channelId, name: channelName, avatar: channelAvatar });
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -161,6 +188,21 @@ export default function VideoDetailScreen() {
 
       <View style={styles.titleRow}>
         <Text style={[sharedStyles.text, styles.title, styles.titleText]}>{title}</Text>
+        <Pressable
+          onPress={handleToggleMusic}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.saveButton,
+            inMusic && styles.saveButtonActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name={inMusic ? 'musical-notes' : 'musical-notes-outline'}
+            size={18}
+            color={inMusic ? colors.accentText : colors.text}
+          />
+        </Pressable>
         <Pressable
           onPress={handleToggleSaved}
           hitSlop={8}
@@ -219,6 +261,20 @@ export default function VideoDetailScreen() {
             <Text style={sharedStyles.mutedText}>{formatFullCount(info.uploaderSubscriberCount)} abonnés</Text>
           )}
         </View>
+        {channelId ? (
+          <Pressable
+            onPress={handleToggleSubscription}
+            style={({ pressed }) => [
+              styles.subscribeButton,
+              subscribed && styles.subscribeButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.subscribeButtonText, subscribed && styles.subscribeButtonTextActive]}>
+              {subscribed ? 'Abonné' : "S'abonner"}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {info?.description ? (
@@ -337,6 +393,23 @@ const styles = StyleSheet.create({
   channelName: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  subscribeButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  subscribeButtonActive: {
+    backgroundColor: colors.surface,
+  },
+  subscribeButtonText: {
+    color: colors.accentText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  subscribeButtonTextActive: {
+    color: colors.text,
   },
   descriptionBox: {
     marginHorizontal: 16,

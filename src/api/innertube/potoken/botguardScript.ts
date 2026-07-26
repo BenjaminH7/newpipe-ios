@@ -1,6 +1,12 @@
-// Port quasi verbatim de po_token.html (NewPipe app repo,
-// app/src/main/assets/po_token.html) : le bootstrap qui sait charger et
-// exécuter la machine virtuelle BotGuard de Google, puis en extraire un
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Port quasi verbatim de po_token.html, Copyright (C) the NewPipe Authors
+// (github.com/TeamNewPipe/NewPipe), licensed GPL-3.0-or-later. Comme le reste
+// de youtubeclient, ce fichier est distribué sous GNU GPLv3-or-later — voir
+// le fichier LICENSE à la racine.
+//
+// Fichier d'origine : app/src/main/assets/po_token.html (NewPipe app repo).
+// Le bootstrap qui sait charger et exécuter la machine virtuelle BotGuard
+// de Google, puis en extraire un
 // poToken. Seul ajout par rapport à l'original : exposer explicitement les
 // fonctions sur l'objet global, car ici elles sont injectées à l'intérieur
 // d'une IIFE (voir jsEngine.ts) au lieu d'être au niveau racine d'une page.

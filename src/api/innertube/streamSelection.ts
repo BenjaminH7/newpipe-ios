@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Reprend la logique de YoutubeStreamExtractor::buildAndAddItagInfoToList,
+// Copyright (C) the NewPipe Authors (github.com/TeamNewPipe/NewPipeExtractor),
+// licensed GPL-3.0-or-later. Comme le reste de youtubeclient, ce fichier est
+// distribué sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
 // Sélection + résolution des flux DASH adaptatifs (vidéo seule / audio seule)
 // d'une réponse `/player`. Port de l'esprit de
 // YoutubeStreamExtractor::buildAndAddItagInfoToList (NewPipeExtractor) :

@@ -98,6 +98,7 @@ export interface VideoSummary {
   id: string;
   title: string;
   thumbnail: string;
+  channelId: string | null;
   channelName: string;
   channelAvatar: string | null;
   uploadedDate: string | null;
@@ -108,6 +109,11 @@ export interface VideoSummary {
 export interface SearchResult {
   items: VideoSummary[];
   nextpage: string | null;
+}
+
+/** Extrait le browseId (identifiant stable "UC...") d'un run de texte cliquable vers une chaîne. */
+function browseIdFromRuns(node: any): string | null {
+  return node?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId ?? null;
 }
 
 function parseVideoRenderer(vr: any): VideoSummary | null {
@@ -123,6 +129,7 @@ function parseVideoRenderer(vr: any): VideoSummary | null {
     id: vr.videoId,
     title: textFrom(vr.title) ?? '',
     thumbnail,
+    channelId: browseIdFromRuns(vr.ownerText) ?? browseIdFromRuns(vr.longBylineText),
     channelName: textFrom(vr.ownerText) ?? textFrom(vr.longBylineText) ?? '',
     channelAvatar: avatarSources[avatarSources.length - 1]?.url ?? null,
     uploadedDate: textFrom(vr.publishedTimeText),
@@ -150,11 +157,33 @@ export async function searchVideosNextPage(nextpage: string): Promise<SearchResu
   return extractSearchResult(data);
 }
 
+/** Trouve, dans la page d'accueil d'une chaîne, les params opaques de l'onglet "Videos". */
+function findVideosTabParams(data: any): string | null {
+  const tab = findAll(data, 'tabRenderer').find((t) => t.title === 'Videos');
+  return tab?.endpoint?.browseEndpoint?.params ?? null;
+}
+
+/** Uploads d'une chaîne (onglet "Videos"), utilisés pour construire le flux d'abonnements. */
+export async function getChannelUploads(channelId: string): Promise<SearchResult> {
+  const home = await webPost('browse', { context: webClientContext(), browseId: channelId });
+  const params = findVideosTabParams(home);
+  const data = params
+    ? await webPost('browse', { context: webClientContext(), browseId: channelId, params })
+    : home;
+  return extractSearchResult(data);
+}
+
+export async function getChannelUploadsNextPage(nextpage: string): Promise<SearchResult> {
+  const data = await webPost('browse', { context: webClientContext(), continuation: nextpage });
+  return extractSearchResult(data);
+}
+
 export interface VideoInfo {
   title: string;
   description: string;
   uploadDate: string;
   uploader: string;
+  uploaderId: string;
   uploaderUrl: string;
   uploaderAvatar: string | null;
   uploaderSubscriberCount: number;
@@ -186,6 +215,7 @@ async function fetchWebMetadata(videoId: string): Promise<{ info: VideoInfo; ada
     description: mf.description?.simpleText ?? vd.shortDescription ?? '',
     uploadDate: mf.uploadDate ?? '',
     uploader: mf.ownerChannelName ?? vd.author ?? '',
+    uploaderId: '',
     uploaderUrl: mf.ownerProfileUrl ?? '',
     uploaderAvatar: null,
     uploaderSubscriberCount: -1,
@@ -203,7 +233,7 @@ async function fetchWebMetadata(videoId: string): Promise<{ info: VideoInfo; ada
 
 async function fetchChannelDetails(
   videoId: string
-): Promise<{ avatar: string | null; subscriberCount: number; verified: boolean }> {
+): Promise<{ channelId: string | null; avatar: string | null; subscriberCount: number; verified: boolean }> {
   try {
     const data = await webPost('next', {
       context: webClientContext(),
@@ -212,21 +242,27 @@ async function fetchChannelDetails(
       racyCheckOk: true,
     });
     const owner = findFirst(data, 'videoOwnerRenderer');
-    if (!owner) return { avatar: null, subscriberCount: -1, verified: false };
+    if (!owner) return { channelId: null, avatar: null, subscriberCount: -1, verified: false };
     const avatarSources = owner.thumbnail?.thumbnails ?? [];
     const verified = (owner.badges ?? []).some(
       (b: any) => b.metadataBadgeRenderer?.style === 'BADGE_STYLE_TYPE_VERIFIED'
     );
     return {
+      channelId: browseIdFromRuns(owner.title),
       avatar: avatarSources[avatarSources.length - 1]?.url ?? null,
       subscriberCount: parseCountText(textFrom(owner.subscriberCountText)),
       verified,
     };
   } catch {
-    return { avatar: null, subscriberCount: -1, verified: false };
+    return { channelId: null, avatar: null, subscriberCount: -1, verified: false };
   }
 }
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+// La fonction ci-dessous reprend l'astuce "Reel" de
+// YoutubeStreamExtractor::getAndroidReelPlayerResponse, Copyright (C) the
+// NewPipe Authors (github.com/TeamNewPipe/NewPipeExtractor), licensed
+// GPL-3.0-or-later.
 /** Astuce Android "Reel" (NewPipe) : lecture garantie sans poToken, plafonnée au format muxé 360p (le seul que YouTube fournit encore en muxé). */
 async function fetchGuaranteedPlayback(videoId: string): Promise<PlayableSource | null> {
   try {
@@ -340,6 +376,7 @@ export async function getVideoInfo(videoId: string): Promise<{ info: VideoInfo; 
     fetchGuaranteedPlayback(videoId),
   ]);
 
+  info.uploaderId = channel.channelId ?? '';
   info.uploaderAvatar = channel.avatar;
   info.uploaderSubscriberCount = channel.subscriberCount;
   info.uploaderVerified = channel.verified;

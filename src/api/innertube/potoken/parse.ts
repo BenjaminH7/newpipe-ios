@@ -1,5 +1,10 @@
-// Port TypeScript de JavaScriptUtil.kt (NewPipe) : décodage des réponses
-// brutes des endpoints BotGuard (Create/GenerateIT).
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Port TypeScript de JavaScriptUtil.kt, Copyright (C) the NewPipe Authors
+// (github.com/TeamNewPipe/NewPipe), licensed GPL-3.0-or-later. Comme le reste
+// de youtubeclient, ce fichier est distribué sous GNU GPLv3-or-later — voir
+// le fichier LICENSE à la racine.
+//
+// Décodage des réponses brutes des endpoints BotGuard (Create/GenerateIT).
 import { asciiStringToBytes, bytesToUrlSafeBase64, youtubeBase64ToBytes } from '../base64';
 
 export interface ChallengeData {

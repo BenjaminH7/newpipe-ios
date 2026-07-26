@@ -127,10 +127,26 @@ hidden WebView and video playback behave differently in the simulator.
   YouTube APIs (InnerTube, BotGuard, obfuscated player JS). YouTube can break
   any method overnight; that's why playback has a three-tier fallback instead
   of a single path.
-- **License**: the [LICENSE](LICENSE) file is the default MIT license from
-  the Expo template. A good part of the logic under `src/api/innertube/` is a
-  direct port of NewPipe/NewPipeExtractor code, which is distributed under
-  **GPLv3**. This should be clarified/reconciled before publishing or
-  distributing the project.
 - **Not affiliated** with Google/YouTube or TeamNewPipe. Personal and
   educational use.
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0 or
+later** (see [LICENSE](LICENSE)), not the MIT license the Expo template
+starts you with. It was relicensed because a good part of the logic under
+`src/api/innertube/` is a direct port of NewPipe/NewPipeExtractor code
+(Copyright (C) the NewPipe Authors, GPLv3), and the GPL requires any work
+that incorporates GPL-licensed code to be distributed as a whole under
+GPL-compatible terms. The affected files carry an `SPDX-License-Identifier`
+header pointing at the specific upstream NewPipe/NewPipeExtractor source they
+port.
+
+One practical consequence: the FSF and Apple's own App Store Terms are
+considered mutually incompatible (the Store imposes usage/DRM restrictions
+that GPLv3 §7 forbids adding on top of the license) — this is the same
+conflict that forced VLC off the App Store in 2011 until its iOS build was
+relicensed under MPL. In its current, correctly-licensed GPLv3 form, this
+project cannot legally be distributed through the Apple App Store or Google
+Play; that would require either a license grant from TeamNewPipe or a
+clean-room rewrite of the ported portions under a non-copyleft license.

@@ -4,11 +4,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@youtubeclient/settings';
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 interface Settings {
   skipProductPlacements: boolean;
+  textOnlyMode: boolean;
+  themeMode: ThemeMode;
+  videoQuotaMinutes: number;
+  musicQuotaMinutes: number;
 }
 
-const DEFAULT_SETTINGS: Settings = { skipProductPlacements: true };
+const DEFAULT_SETTINGS: Settings = {
+  skipProductPlacements: true,
+  textOnlyMode: false,
+  themeMode: 'system',
+  videoQuotaMinutes: 30,
+  musicQuotaMinutes: 30,
+};
 
 let cache: Settings = DEFAULT_SETTINGS;
 let loaded = false;
@@ -49,6 +61,30 @@ export function loadSettings(): Promise<Settings> {
 
 export async function setSkipProductPlacements(value: boolean): Promise<void> {
   cache = { ...cache, skipProductPlacements: value };
+  notify();
+  await persist();
+}
+
+export async function setTextOnlyMode(value: boolean): Promise<void> {
+  cache = { ...cache, textOnlyMode: value };
+  notify();
+  await persist();
+}
+
+export async function setThemeMode(value: ThemeMode): Promise<void> {
+  cache = { ...cache, themeMode: value };
+  notify();
+  await persist();
+}
+
+export async function setVideoQuotaMinutes(value: number): Promise<void> {
+  cache = { ...cache, videoQuotaMinutes: value };
+  notify();
+  await persist();
+}
+
+export async function setMusicQuotaMinutes(value: number): Promise<void> {
+  cache = { ...cache, musicQuotaMinutes: value };
   notify();
   await persist();
 }

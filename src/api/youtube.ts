@@ -2,4 +2,10 @@
 // l'infrastructure InnerTube de YouTube (recherche, métadonnées, lecture),
 // sans dépendre d'un proxy tiers. Voir src/api/innertube/ pour le détail.
 export type { VideoSummary, VideoInfo, SearchResult, PlayableSource } from './innertube/client';
-export { searchVideos, searchVideosNextPage, getVideoInfo } from './innertube/client';
+export {
+  searchVideos,
+  searchVideosNextPage,
+  getVideoInfo,
+  getChannelUploads,
+  getChannelUploadsNextPage,
+} from './innertube/client';

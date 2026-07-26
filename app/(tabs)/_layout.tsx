@@ -27,11 +27,38 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="subscriptions"
+        options={{
+          title: 'Abonnements',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="playlists"
         options={{
           title: 'Playlists',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'albums' : 'albums-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="music"
+        options={{
+          title: 'Musique',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Réglages',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
         }}
       />

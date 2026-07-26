@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Constantes portées de ClientsConstants.java, Copyright (C) the NewPipe
+// Authors (github.com/TeamNewPipe/NewPipeExtractor), licensed
+// GPL-3.0-or-later. Comme le reste de youtubeclient, ce fichier est distribué
+// sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
 // Constantes InnerTube portées de TeamNewPipe/NewPipeExtractor
 // (extractor/.../youtube/ClientsConstants.java), client WEB uniquement : c'est
 // le seul pour lequel on sait générer un poToken (via BotGuard, cf. potoken/).

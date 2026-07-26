@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { VideoSummary } from '@/api/youtube';
+import { useIsInMusicLibrary, useToggleMusicTrack } from '@/hooks/useMusicLibrary';
 import { useIsVideoSaved, useToggleSavedVideo } from '@/hooks/useSavedVideos';
+import { useTextOnlyMode } from '@/hooks/useSettings';
 import { useWatchProgress } from '@/hooks/useWatchProgress';
 import { colors, sharedStyles } from '@/theme';
 import { formatDuration, formatViews } from '@/utils/format';
@@ -10,7 +12,10 @@ import { formatDuration, formatViews } from '@/utils/format';
 export function VideoListItem({ video, onPress }: { video: VideoSummary; onPress: () => void }) {
   const saved = useIsVideoSaved(video.id);
   const toggleSaved = useToggleSavedVideo();
+  const inMusic = useIsInMusicLibrary(video.id);
+  const toggleMusic = useToggleMusicTrack();
   const progress = useWatchProgress(video.id);
+  const [textOnlyMode] = useTextOnlyMode();
   const progressRatio = progress
     ? Math.min(1, Math.max(0, progress.positionSeconds / progress.durationSeconds))
     : 0;
@@ -18,7 +23,11 @@ export function VideoListItem({ video, onPress }: { video: VideoSummary; onPress
   return (
     <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]} onPress={onPress}>
       <View style={styles.thumbnailWrap}>
-        <Image source={{ uri: video.thumbnail }} style={[styles.thumbnail, sharedStyles.thumbnail]} contentFit="cover" />
+        {textOnlyMode ? (
+          <View style={[styles.thumbnail, styles.thumbnailPlaceholder]} />
+        ) : (
+          <Image source={{ uri: video.thumbnail }} style={[styles.thumbnail, sharedStyles.thumbnail]} contentFit="cover" />
+        )}
         {video.duration >= 0 && (
           <View style={styles.durationBadge}>
             <Text style={styles.durationText}>{formatDuration(video.duration)}</Text>
@@ -39,6 +48,17 @@ export function VideoListItem({ video, onPress }: { video: VideoSummary; onPress
           ]}
         >
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color="#ffffff" />
+        </Pressable>
+        <Pressable
+          onPress={() => toggleMusic(video)}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.musicBadge,
+            inMusic && { backgroundColor: colors.accent },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons name={inMusic ? 'musical-notes' : 'musical-notes-outline'} size={16} color="#ffffff" />
         </Pressable>
       </View>
       <View style={styles.info}>
@@ -73,6 +93,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  thumbnailPlaceholder: {
+    backgroundColor: colors.surface,
+  },
   durationBadge: {
     position: 'absolute',
     bottom: 8,
@@ -98,6 +121,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  musicBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
     backgroundColor: 'rgba(0,0,0,0.55)',
     width: 28,
     height: 28,

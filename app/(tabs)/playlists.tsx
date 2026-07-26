@@ -2,6 +2,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView } from '@/components/StatusView';
+import { MiniPlayer } from '@/components/MiniPlayer';
 import { useSavedVideos } from '@/hooks/useSavedVideos';
 import { colors } from '@/theme';
 
@@ -28,6 +29,7 @@ export default function PlaylistsScreen() {
                     id: item.id,
                     title: item.title,
                     thumbnail: item.thumbnail,
+                    channelId: item.channelId ?? '',
                     channelName: item.channelName,
                     channelAvatar: item.channelAvatar ?? '',
                     uploadedDate: item.uploadedDate ?? '',
@@ -40,6 +42,8 @@ export default function PlaylistsScreen() {
           )}
         />
       )}
+
+      <MiniPlayer />
     </View>
   );
 }

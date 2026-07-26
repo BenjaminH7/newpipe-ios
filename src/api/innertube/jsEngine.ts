@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Reprend le principe de PoTokenWebView.kt, Copyright (C) the NewPipe Authors
+// (github.com/TeamNewPipe/NewPipe), licensed GPL-3.0-or-later, adapté ici à
+// react-native-webview. Comme le reste de youtubeclient, ce fichier est
+// distribué sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
 // Bridge générique vers une WebView cachée servant de moteur JavaScript
 // "réel" (DOM inclus) : Hermes ne peut pas exécuter le code BotGuard de
 // Google (il a besoin d'un vrai environnement navigateur pour être crédible),

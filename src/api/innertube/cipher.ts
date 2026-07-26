@@ -1,4 +1,9 @@
-// Port TypeScript de YoutubeJavaScriptExtractor.java + YoutubeSignatureUtils.java
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Port TypeScript de YoutubeJavaScriptExtractor.java + YoutubeSignatureUtils.java,
+// Copyright (C) the NewPipe Authors (github.com/TeamNewPipe/NewPipeExtractor),
+// licensed GPL-3.0-or-later. Comme le reste de youtubeclient, ce fichier est
+// distribué sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
 // (NewPipeExtractor) : télécharge le lecteur JS de base de YouTube, en extrait
 // la fonction de déobfuscation des signatures de flux, et l'exécute dans la
 // WebView (cf. jsEngine.ts) — exactement le même principe que pour BotGuard,

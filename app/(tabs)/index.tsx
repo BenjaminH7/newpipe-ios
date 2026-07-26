@@ -13,6 +13,7 @@ import { searchVideos, searchVideosNextPage } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
+import { MiniPlayer } from '@/components/MiniPlayer';
 import { colors, sharedStyles } from '@/theme';
 
 function dedupeById(items: VideoSummary[]): VideoSummary[] {
@@ -106,6 +107,7 @@ export default function SearchScreen() {
                     id: item.id,
                     title: item.title,
                     thumbnail: item.thumbnail,
+                    channelId: item.channelId ?? '',
                     channelName: item.channelName,
                     channelAvatar: item.channelAvatar ?? '',
                     uploadedDate: item.uploadedDate ?? '',
@@ -121,6 +123,8 @@ export default function SearchScreen() {
           ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} /> : null}
         />
       )}
+
+      <MiniPlayer />
     </View>
   );
 }

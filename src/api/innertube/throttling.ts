@@ -1,4 +1,10 @@
-// Port TypeScript de YoutubeThrottlingParameterUtils.java (NewPipeExtractor) :
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Port TypeScript de YoutubeThrottlingParameterUtils.java, Copyright (C) the
+// NewPipe Authors (github.com/TeamNewPipe/NewPipeExtractor), licensed
+// GPL-3.0-or-later. Comme le reste de youtubeclient, ce fichier est distribué
+// sous GNU GPLv3-or-later — voir le fichier LICENSE à la racine.
+//
+// (NewPipeExtractor) :
 // les flux DASH/adaptatifs de YouTube portent parfois un paramètre `n` qui,
 // s'il n'est pas "déchiffré", fait volontairement brider (throttle) le débit
 // de téléchargement par le CDN. Ce n'est pas bloquant pour la lecture (juste
