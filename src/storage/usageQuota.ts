@@ -5,10 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@youtubeclient/usageQuota';
 
-// Seuil fixe (non configurable) sur le nombre de vidéos distinctes par jour,
-// en plus du seuil en minutes qui, lui, est réglable dans les paramètres.
-export const VIDEO_COUNT_LIMIT = 3;
-
 // On ignore les écarts de temps réel trop grands entre deux tops (veille de
 // l'app, changement d'onglet, etc.) pour ne compter que du temps de lecture
 // effectif, pas le temps passé en arrière-plan.
@@ -17,7 +13,6 @@ const MAX_TICK_GAP_SECONDS = 3;
 interface UsageState {
   date: string;
   videoSeconds: number;
-  videoIds: string[];
   musicSeconds: number;
 }
 
@@ -27,7 +22,7 @@ function todayKey(): string {
 }
 
 function emptyState(): UsageState {
-  return { date: todayKey(), videoSeconds: 0, videoIds: [], musicSeconds: 0 };
+  return { date: todayKey(), videoSeconds: 0, musicSeconds: 0 };
 }
 
 let cache: UsageState = emptyState();
@@ -82,11 +77,10 @@ export function loadUsage(): Promise<UsageState> {
   return loadPromise;
 }
 
-export async function addVideoWatchSeconds(id: string, seconds: number): Promise<void> {
+export async function addVideoWatchSeconds(seconds: number): Promise<void> {
   if (seconds <= 0 || seconds > MAX_TICK_GAP_SECONDS) return;
   rolloverIfNeeded();
-  const videoIds = cache.videoIds.includes(id) ? cache.videoIds : [...cache.videoIds, id];
-  cache = { ...cache, videoSeconds: cache.videoSeconds + seconds, videoIds };
+  cache = { ...cache, videoSeconds: cache.videoSeconds + seconds };
   notify();
   await persist();
 }

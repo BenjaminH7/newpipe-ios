@@ -98,7 +98,7 @@ export default function VideoDetailScreen() {
       const now = Date.now();
 
       if (quotaTickRef.current !== null) {
-        addVideoWatchSeconds(id, (now - quotaTickRef.current) / 1000);
+        addVideoWatchSeconds((now - quotaTickRef.current) / 1000);
       }
       quotaTickRef.current = now;
 
@@ -173,7 +173,7 @@ export default function VideoDetailScreen() {
       {videoQuotaExceeded ? (
         <View style={styles.playerFallback}>
           <QuotaBlockedView
-            message={`Tu as atteint ta limite de lecture vidéo pour aujourd'hui (${videoQuotaMinutes} min ou 3 vidéos). Reviens demain !`}
+            message={`Tu as atteint ta limite de lecture vidéo pour aujourd'hui (${videoQuotaMinutes} min). Reviens demain !`}
           />
         </View>
       ) : fetchState === 'ready' && !playbackUnavailable && playable ? (

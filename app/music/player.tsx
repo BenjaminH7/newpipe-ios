@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchLyrics, type LyricsLine, type LyricsResult } from '@/api/lyrics';
+import { translateLines, translateText } from '@/api/translate';
 import { QuotaBlockedView } from '@/components/QuotaBlockedView';
 import { useMusicQuotaMinutes } from '@/hooks/useSettings';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
@@ -53,12 +55,16 @@ export default function MusicPlayerScreen() {
   const [showLyrics, setShowLyrics] = useState(false);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [syncedTranslations, setSyncedTranslations] = useState<(string | null)[] | null>(null);
+  const [plainTranslation, setPlainTranslation] = useState<string | null>(null);
   const lyricsListRef = useRef<FlatList<LyricsLine>>(null);
 
   useEffect(() => {
     if (!currentTrack) return;
     let cancelled = false;
     setLyricsStatus('loading');
+    setSyncedTranslations(null);
+    setPlainTranslation(null);
     fetchLyrics(currentTrack).then((result) => {
       if (cancelled) return;
       setLyrics(result);
@@ -68,6 +74,25 @@ export default function MusicPlayerScreen() {
       cancelled = true;
     };
   }, [currentTrack]);
+
+  // Traduction en français des paroles, chargée une fois qu'elles sont
+  // disponibles (synchronisées ligne par ligne, ou en bloc pour le texte brut).
+  useEffect(() => {
+    if (!lyrics) return;
+    let cancelled = false;
+    if (lyrics.synced && lyrics.synced.length > 0) {
+      translateLines(lyrics.synced.map((line) => line.text)).then((result) => {
+        if (!cancelled) setSyncedTranslations(result);
+      });
+    } else if (lyrics.plain) {
+      translateText(lyrics.plain).then((result) => {
+        if (!cancelled) setPlainTranslation(result);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [lyrics]);
 
   const activeLyricsLine = useMemo(() => {
     if (!lyrics?.synced) return -1;
@@ -87,6 +112,62 @@ export default function MusicPlayerScreen() {
       // La liste peut ne pas être encore mesurée : on retentera au prochain tick.
     }
   }, [activeLyricsLine]);
+
+  // Barre de progression glissable : on suit le doigt en continu (isSeeking +
+  // seekRatio) et on ne notifie le player qu'au relâchement, comme un slider
+  // natif classique. Les refs évitent de recréer le PanResponder à chaque
+  // rendu tout en lisant toujours les dernières valeurs de duration/seekTo.
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekRatio, setSeekRatio] = useState(0);
+  const trackRef = useRef<View>(null);
+  const trackWidthRef = useRef(0);
+  const trackPageXRef = useRef(0);
+  const seekRatioRef = useRef(0);
+  const durationRef = useRef(duration);
+  const seekToRef = useRef(seekTo);
+
+  useEffect(() => {
+    trackWidthRef.current = trackWidth;
+  }, [trackWidth]);
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+  useEffect(() => {
+    seekToRef.current = seekTo;
+  }, [seekTo]);
+
+  const updateRatioFromPageX = useCallback((pageX: number) => {
+    if (trackWidthRef.current === 0) return;
+    const ratio = Math.min(1, Math.max(0, (pageX - trackPageXRef.current) / trackWidthRef.current));
+    seekRatioRef.current = ratio;
+    setSeekRatio(ratio);
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => durationRef.current > 0,
+      onMoveShouldSetPanResponder: () => durationRef.current > 0,
+      onPanResponderGrant: (e: GestureResponderEvent) => {
+        setIsSeeking(true);
+        updateRatioFromPageX(e.nativeEvent.pageX);
+      },
+      onPanResponderMove: (e: GestureResponderEvent) => {
+        updateRatioFromPageX(e.nativeEvent.pageX);
+      },
+      onPanResponderRelease: () => {
+        seekToRef.current(seekRatioRef.current * durationRef.current);
+        setIsSeeking(false);
+      },
+      onPanResponderTerminate: () => setIsSeeking(false),
+    }),
+  ).current;
+
+  const handleTrackLayout = useCallback((e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+    trackRef.current?.measure((_x, _y, _width, _height, pageX) => {
+      trackPageXRef.current = pageX;
+    });
+  }, []);
 
   const openSleepTimerPicker = () => {
     const buttons = [
@@ -127,13 +208,8 @@ export default function MusicPlayerScreen() {
   }
 
   const ratio = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-
-  const handleSeek = (e: GestureResponderEvent) => {
-    if (trackWidth === 0 || duration <= 0) return;
-    const x = e.nativeEvent.locationX;
-    const nextRatio = Math.min(1, Math.max(0, x / trackWidth));
-    seekTo(nextRatio * duration);
-  };
+  const displayRatio = isSeeking ? seekRatio : ratio;
+  const displayPosition = isSeeking ? seekRatio * duration : position;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
@@ -169,15 +245,33 @@ export default function MusicPlayerScreen() {
               showsVerticalScrollIndicator={false}
               onScrollToIndexFailed={() => {}}
               renderItem={({ item, index }) => (
-                <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
-                  {item.text || '♪'}
-                </Text>
+                <View style={styles.lyricsLineWrap}>
+                  <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
+                    {item.text || '♪'}
+                  </Text>
+                  {syncedTranslations?.[index] && (
+                    <Text
+                      style={[
+                        styles.lyricsTranslation,
+                        index === activeLyricsLine && styles.lyricsTranslationActive,
+                      ]}
+                    >
+                      {syncedTranslations[index]}
+                    </Text>
+                  )}
+                </View>
               )}
             />
           )}
           {lyricsStatus === 'ready' && (!lyrics?.synced || lyrics.synced.length === 0) && lyrics?.plain && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsListContent}>
               <Text style={styles.lyricsPlainText}>{lyrics.plain}</Text>
+              {plainTranslation && (
+                <>
+                  <Text style={styles.translationDivider}>Traduction</Text>
+                  <Text style={styles.lyricsPlainText}>{plainTranslation}</Text>
+                </>
+              )}
             </ScrollView>
           )}
         </View>
@@ -198,15 +292,19 @@ export default function MusicPlayerScreen() {
         </Text>
       </View>
 
-      <Pressable
-        style={styles.progressTrack}
-        onLayout={(e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width)}
-        onPress={handleSeek}
+      <View
+        ref={trackRef}
+        style={styles.progressTouchArea}
+        onLayout={handleTrackLayout}
+        {...panResponder.panHandlers}
       >
-        <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
-      </Pressable>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${displayRatio * 100}%` }]} />
+        </View>
+        <View style={[styles.progressThumb, { left: `${displayRatio * 100}%` }]} />
+      </View>
       <View style={styles.timeRow}>
-        <Text style={sharedStyles.mutedText}>{formatDuration(position)}</Text>
+        <Text style={sharedStyles.mutedText}>{formatDuration(displayPosition)}</Text>
         <Text style={sharedStyles.mutedText}>{formatDuration(duration)}</Text>
       </View>
 
@@ -292,20 +390,43 @@ function createStyles(colors: ColorPalette) {
     lyricsListContent: {
       paddingVertical: 12,
     },
+    lyricsLineWrap: {
+      marginBottom: 20,
+    },
     lyricsLine: {
       color: colors.muted,
-      fontSize: 17,
-      fontWeight: '600',
-      lineHeight: 26,
-      marginBottom: 14,
+      fontSize: 23,
+      fontWeight: '700',
+      lineHeight: 30,
     },
     lyricsLineActive: {
       color: colors.text,
     },
+    lyricsTranslation: {
+      color: colors.muted,
+      fontSize: 16,
+      fontStyle: 'italic',
+      lineHeight: 21,
+      marginTop: 3,
+      opacity: 0.8,
+    },
+    lyricsTranslationActive: {
+      color: colors.accent,
+      opacity: 1,
+    },
     lyricsPlainText: {
       color: colors.text,
-      fontSize: 15,
-      lineHeight: 24,
+      fontSize: 19,
+      lineHeight: 28,
+    },
+    translationDivider: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 24,
+      marginBottom: 8,
     },
     meta: {
       marginTop: 28,
@@ -316,15 +437,29 @@ function createStyles(colors: ColorPalette) {
       fontWeight: '700',
       lineHeight: 26,
     },
+    progressTouchArea: {
+      justifyContent: 'center',
+      marginTop: 28,
+      paddingVertical: 10,
+    },
     progressTrack: {
       height: 4,
       borderRadius: 2,
       backgroundColor: colors.surface,
-      marginTop: 28,
       overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
+      backgroundColor: colors.accent,
+    },
+    progressThumb: {
+      position: 'absolute',
+      top: '50%',
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      marginTop: -7,
+      marginLeft: -7,
       backgroundColor: colors.accent,
     },
     timeRow: {

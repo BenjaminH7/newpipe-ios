@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { EmptyView } from '@/components/StatusView';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { usePlayer } from '@/player/PlayerContext';
+import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
@@ -15,6 +16,17 @@ export default function MusicScreen() {
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
   const [query, setQuery] = useState('');
+
+  const confirmRemoveTrack = (track: MusicTrack) => {
+    Alert.alert(
+      'Supprimer ce titre ?',
+      `Veux-tu vraiment supprimer "${track.title}" de ta bibliothèque musicale ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: () => removeTrack(track.id) },
+      ],
+    );
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -52,7 +64,7 @@ export default function MusicScreen() {
             <MusicTrackItem
               track={item}
               onPress={() => playTrack(item, filtered)}
-              onRemove={() => removeTrack(item.id)}
+              onRemove={() => confirmRemoveTrack(item)}
               onRetryDownload={() => retryDownload(item.id)}
             />
           )}

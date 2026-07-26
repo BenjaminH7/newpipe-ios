@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMusicQuotaMinutes, useVideoQuotaMinutes } from '@/hooks/useSettings';
-import { VIDEO_COUNT_LIMIT, getUsageSync, loadUsage, subscribeUsage } from '@/storage/usageQuota';
+import { getUsageSync, loadUsage, subscribeUsage } from '@/storage/usageQuota';
 
 export function useVideoQuotaExceeded(): boolean {
   const [usage, setUsage] = useState(getUsageSync());
@@ -11,7 +11,7 @@ export function useVideoQuotaExceeded(): boolean {
     return subscribeUsage(setUsage);
   }, []);
 
-  return usage.videoSeconds >= limitMinutes * 60 || usage.videoIds.length >= VIDEO_COUNT_LIMIT;
+  return usage.videoSeconds >= limitMinutes * 60;
 }
 
 export function useMusicQuotaExceeded(): boolean {
