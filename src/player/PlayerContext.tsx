@@ -6,7 +6,7 @@
 // plan) mais pour une file de pistes plutôt qu'une vidéo unique.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { getVideoInfo } from '@/api/youtube';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
@@ -110,7 +110,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const loadAndPlay = useCallback(
     async (track: MusicTrack) => {
-      if (musicQuotaExceededRef.current) return;
+      if (musicQuotaExceededRef.current) {
+        Alert.alert(
+          "Limite atteinte",
+          "Tu as atteint ta limite d'écoute musicale pour aujourd'hui. Reviens demain, ou augmente-la dans les réglages.",
+        );
+        return;
+      }
       quotaTickRef.current = null;
       setCurrentTrack(track);
       setIsBuffering(true);

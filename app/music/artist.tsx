@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -88,7 +88,10 @@ export default function ArtistScreen() {
   const handlePressTrack = useCallback(
     async (track: DeezerTrack) => {
       const video = await resolveTrack(track);
-      if (!video) return;
+      if (!video) {
+        Alert.alert('Introuvable', `Impossible de trouver "${track.title}" sur YouTube.`);
+        return;
+      }
 
       const merged = { ...resolvedRef.current, [track.id]: video };
       const queue = tracks

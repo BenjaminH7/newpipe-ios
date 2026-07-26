@@ -50,7 +50,7 @@ export function useYoutubeResolution(tracks: DeezerTrack[]) {
       video = await resolveYoutubeTrack(track.artist, track.title, track.duration);
       setResolved((prev) => ({ ...prev, [track.id]: video }));
     }
-    return video === 'pending' ? null : video;
+    return video;
   }, []);
 
   return { resolved, resolvedRef, resolveTrack };
