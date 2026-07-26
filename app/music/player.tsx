@@ -287,9 +287,14 @@ export default function MusicPlayerScreen() {
         <Text style={[sharedStyles.text, styles.title]} numberOfLines={2}>
           {currentTrack.title}
         </Text>
-        <Text style={sharedStyles.mutedText} numberOfLines={1}>
-          {currentTrack.artist}
-        </Text>
+        <Pressable
+          hitSlop={6}
+          onPress={() => router.push({ pathname: '/music/artist', params: { artist: currentTrack.artist } })}
+        >
+          <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
+            {currentTrack.artist}
+          </Text>
+        </Pressable>
       </View>
 
       <View
@@ -436,6 +441,9 @@ function createStyles(colors: ColorPalette) {
       fontSize: 20,
       fontWeight: '700',
       lineHeight: 26,
+    },
+    artistLink: {
+      fontWeight: '600',
     },
     progressTouchArea: {
       justifyContent: 'center',

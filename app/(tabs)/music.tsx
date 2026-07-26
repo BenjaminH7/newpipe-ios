@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { EmptyView } from '@/components/StatusView';
@@ -9,6 +10,7 @@ import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
+  const router = useRouter();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tracks = useMusicLibrary();
@@ -16,6 +18,10 @@ export default function MusicScreen() {
   const removeTrack = useRemoveMusicTrack();
   const retryDownload = useRetryMusicDownload();
   const [query, setQuery] = useState('');
+
+  const openArtist = (artist: string) => {
+    router.push({ pathname: '/music/artist', params: { artist } });
+  };
 
   const confirmRemoveTrack = (track: MusicTrack) => {
     Alert.alert(
@@ -64,6 +70,7 @@ export default function MusicScreen() {
             <MusicTrackItem
               track={item}
               onPress={() => playTrack(item, filtered)}
+              onArtistPress={() => openArtist(item.artist)}
               onRemove={() => confirmRemoveTrack(item)}
               onRetryDownload={() => retryDownload(item.id)}
             />

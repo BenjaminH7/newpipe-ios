@@ -8,11 +8,13 @@ import { formatDuration } from '@/utils/format';
 export function MusicTrackItem({
   track,
   onPress,
+  onArtistPress,
   onRemove,
   onRetryDownload,
 }: {
   track: MusicTrack;
   onPress: () => void;
+  onArtistPress: () => void;
   onRemove: () => void;
   onRetryDownload: () => void;
 }) {
@@ -24,9 +26,19 @@ export function MusicTrackItem({
         <Text style={[sharedStyles.text, styles.title]} numberOfLines={1}>
           {track.title}
         </Text>
-        <Text style={sharedStyles.mutedText} numberOfLines={1}>
-          {[track.artist, track.duration >= 0 ? formatDuration(track.duration) : null].filter(Boolean).join(' · ')}
-        </Text>
+        <View style={styles.subRow}>
+          <Pressable hitSlop={6} onPress={onArtistPress} style={styles.artistPressable}>
+            <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
+              {track.artist}
+            </Text>
+          </Pressable>
+          {track.duration >= 0 && (
+            <Text style={sharedStyles.mutedText} numberOfLines={1}>
+              {' '}
+              · {formatDuration(track.duration)}
+            </Text>
+          )}
+        </View>
       </View>
 
       {track.downloadStatus === 'downloading' && (
@@ -68,6 +80,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
+    fontWeight: '600',
+  },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  artistPressable: {
+    flexShrink: 1,
+  },
+  artistLink: {
     fontWeight: '600',
   },
   status: {
