@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   getSettingsSync,
   loadSettings,
+  setHidePlaylistsTab,
   setHideSubscriptionsTab,
   setMusicQuotaMinutes,
   setSkipProductPlacements,
@@ -88,4 +89,15 @@ export function useHideSubscriptionsTab(): [boolean, (value: boolean) => void] {
   }, []);
 
   return [hidden, setHideSubscriptionsTab];
+}
+
+export function useHidePlaylistsTab(): [boolean, (value: boolean) => void] {
+  const [hidden, setHidden] = useState(getSettingsSync().hidePlaylistsTab);
+
+  useEffect(() => {
+    loadSettings().then((s) => setHidden(s.hidePlaylistsTab));
+    return subscribeSettings((s) => setHidden(s.hidePlaylistsTab));
+  }, []);
+
+  return [hidden, setHidePlaylistsTab];
 }

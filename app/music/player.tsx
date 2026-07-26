@@ -7,7 +7,6 @@ import {
   Easing,
   FlatList,
   PanResponder,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -44,11 +43,11 @@ export default function MusicPlayerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  // L'écran est présenté en modale : sur iOS la feuille s'arrête déjà sous la
-  // barre de statut, donc ajouter insets.top créait un grand vide au-dessus
-  // de "Lecture en cours". Sur Android la modale est plein écran, l'inset
-  // reste nécessaire.
-  const topPadding = Platform.OS === 'ios' ? 12 : insets.top + 12;
+  // L'écran est présenté en formSheet (85 % de la hauteur) : la feuille
+  // s'arrête sous la barre de statut sur les deux plateformes, donc pas
+  // d'inset haut à ajouter — ça créerait un grand vide au-dessus de
+  // "Lecture en cours".
+  const topPadding = 12;
   const {
     currentTrack,
     isPlaying,
@@ -202,8 +201,9 @@ export default function MusicPlayerScreen() {
   const seekRatioRef = useRef(0);
   const durationRef = useRef(duration);
   const seekToRef = useRef(seekTo);
-  // Comme sur Spotify mobile : le curseur (le petit rond) est toujours
-  // visible et grossit légèrement pendant qu'on glisse dans la piste.
+  // Le curseur (le petit rond) reste invisible tant qu'on n'interagit pas
+  // avec la barre : il apparaît en fondu/zoom sous le doigt pendant le
+  // glissement, puis disparaît au relâchement.
   const thumbAnim = useRef(new Animated.Value(0)).current;
   // Progression fluide : le player ne rapporte sa position que toutes les
   // 0,5 s, ce qui faisait avancer la barre par à-coups. On anime donc une
@@ -305,7 +305,7 @@ export default function MusicPlayerScreen() {
 
   if (musicQuotaExceeded) {
     return (
-      <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.container, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
           <Ionicons name="chevron-down" size={28} color={colors.text} />
         </Pressable>
@@ -344,7 +344,7 @@ export default function MusicPlayerScreen() {
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
-      <View style={[styles.content, { paddingTop: topPadding, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.content, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.topRow}>
           <Text style={styles.topRowLabel} numberOfLines={1}>
             {radioEnabled ? 'Radio' : 'Lecture en cours'}
@@ -478,6 +478,7 @@ export default function MusicPlayerScreen() {
               style={[
                 styles.progressThumb,
                 {
+                  opacity: thumbAnim,
                   transform: [
                     {
                       translateX: progressAnim.interpolate({
@@ -485,7 +486,7 @@ export default function MusicPlayerScreen() {
                         outputRange: [0, trackWidth],
                       }),
                     },
-                    { scale: thumbAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.4] }) },
+                    { scale: thumbAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
                   ],
                 },
               ]}

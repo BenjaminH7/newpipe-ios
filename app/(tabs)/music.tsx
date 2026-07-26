@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -40,6 +40,16 @@ export default function MusicScreen() {
         title="Musique"
         subtitle={
           tracks.length > 0 ? `${tracks.length} titre${tracks.length > 1 ? 's' : ''}` : undefined
+        }
+        right={
+          <Pressable
+            onPress={() => router.push('/history')}
+            hitSlop={8}
+            accessibilityLabel="Historique"
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <Ionicons name="time-outline" size={26} color={colors.text} />
+          </Pressable>
         }
       />
 

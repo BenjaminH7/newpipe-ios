@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import {
+  useHidePlaylistsTab,
   useHideSubscriptionsTab,
   useMusicQuotaMinutes,
   useSkipProductPlacements,
@@ -110,35 +109,6 @@ function QuotaMinutesRow({
   );
 }
 
-function NavigationRow({
-  title,
-  description,
-  onPress,
-  colors,
-  sharedStyles,
-  styles,
-}: {
-  title: string;
-  description: string;
-  onPress: () => void;
-  colors: ColorPalette;
-  sharedStyles: SharedStyles;
-  styles: Styles;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
-    >
-      <View style={styles.rowText}>
-        <Text style={[sharedStyles.text, styles.rowTitle]}>{title}</Text>
-        <Text style={sharedStyles.mutedText}>{description}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-    </Pressable>
-  );
-}
-
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Système' },
   { value: 'light', label: 'Clair' },
@@ -177,7 +147,6 @@ function ThemeModeSelector({
 }
 
 export default function SettingsScreen() {
-  const router = useRouter();
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { contentBottomPadding } = useBottomOffsets();
@@ -188,6 +157,7 @@ export default function SettingsScreen() {
   const [videoQuotaMinutes, setVideoQuotaMinutes] = useVideoQuotaMinutes();
   const [musicQuotaMinutes, setMusicQuotaMinutes] = useMusicQuotaMinutes();
   const [hideSubscriptionsTab, setHideSubscriptionsTab] = useHideSubscriptionsTab();
+  const [hidePlaylistsTab, setHidePlaylistsTab] = useHidePlaylistsTab();
 
   return (
     <View style={styles.container}>
@@ -222,6 +192,16 @@ export default function SettingsScreen() {
           description="Retire l'onglet Abonnements de la barre de navigation."
           value={hideSubscriptionsTab}
           onValueChange={setHideSubscriptionsTab}
+          colors={colors}
+          sharedStyles={sharedStyles}
+          styles={styles}
+        />
+        <View style={styles.separator} />
+        <SettingRow
+          title="Masquer l'onglet Playlists"
+          description="Retire l'onglet Playlists de la barre de navigation."
+          value={hidePlaylistsTab}
+          onValueChange={setHidePlaylistsTab}
           colors={colors}
           sharedStyles={sharedStyles}
           styles={styles}
@@ -272,17 +252,6 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle}>Historique</Text>
-      <View style={[sharedStyles.card, styles.section]}>
-        <NavigationRow
-          title="Voir l'historique"
-          description="Retrouve les vidéos regardées et les musiques écoutées récemment."
-          onPress={() => router.push('/history')}
-          colors={colors}
-          sharedStyles={sharedStyles}
-          styles={styles}
-        />
-      </View>
       </ScrollView>
 
       <MiniPlayer />

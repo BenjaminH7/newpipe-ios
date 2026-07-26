@@ -14,6 +14,7 @@ interface Settings {
   videoQuotaMinutes: number;
   musicQuotaMinutes: number;
   hideSubscriptionsTab: boolean;
+  hidePlaylistsTab: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
   videoQuotaMinutes: 30,
   musicQuotaMinutes: 30,
   hideSubscriptionsTab: false,
+  hidePlaylistsTab: false,
 };
 
 let cache: Settings = DEFAULT_SETTINGS;
@@ -101,6 +103,12 @@ export async function setMusicQuotaMinutes(value: number): Promise<void> {
 
 export async function setHideSubscriptionsTab(value: boolean): Promise<void> {
   cache = { ...cache, hideSubscriptionsTab: value };
+  notify();
+  await persist();
+}
+
+export async function setHidePlaylistsTab(value: boolean): Promise<void> {
+  cache = { ...cache, hidePlaylistsTab: value };
   notify();
   await persist();
 }

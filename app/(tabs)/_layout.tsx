@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
-import { useHideSubscriptionsTab } from '@/hooks/useSettings';
+import { useHidePlaylistsTab, useHideSubscriptionsTab } from '@/hooks/useSettings';
 import { useTheme } from '@/theme';
+
+// Le flou natif n'existe que si le binaire qui exécute l'app embarque le
+// module ExpoBlurView : Expo Go l'inclut, mais un build EAS/TestFlight
+// compilé AVANT l'ajout d'expo-blur au projet ne l'a pas. Sans ce test,
+// rendre <BlurView> affiche "Unimplemented component
+// <ViewManagerAdapter_ExpoBlurView>" à la place du fond de la tab bar.
+const hasNativeBlur = Platform.OS === 'ios' && requireOptionalNativeModule('ExpoBlurView') !== null;
 
 // Tab bar façon Spotify : pas de header natif (chaque écran affiche son
 // ScreenHeader), onglet actif dans la couleur du texte plutôt qu'en accent,
@@ -13,6 +21,7 @@ import { useTheme } from '@/theme';
 export default function TabsLayout() {
   const { colors, scheme } = useTheme();
   const [hideSubscriptionsTab] = useHideSubscriptionsTab();
+  const [hidePlaylistsTab] = useHidePlaylistsTab();
 
   return (
     <Tabs
@@ -28,7 +37,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
+          hasNativeBlur ? (
             <BlurView
               tint={scheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
               intensity={90}
@@ -65,6 +74,7 @@ export default function TabsLayout() {
         name="playlists"
         options={{
           title: 'Playlists',
+          href: hidePlaylistsTab ? null : undefined,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'albums' : 'albums-outline'} size={size} color={color} />
           ),
