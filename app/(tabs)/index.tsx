@@ -310,6 +310,23 @@ function createStyles(colors: ColorPalette) {
       fontSize: 10,
       fontWeight: '800',
     },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginHorizontal: 20,
+      marginTop: 4,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+    },
+    searchPlaceholder: {
+      flex: 1,
+      color: colors.muted,
+      fontSize: 15,
+      fontWeight: '500',
+    },
     chipsScroll: {
       flexGrow: 0,
       marginBottom: 4,
