@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  getArtist,
   getArtistAlbums,
   getArtistTopTracks,
   searchArtist,
@@ -26,7 +27,7 @@ import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 import { formatCount } from '@/utils/format';
 
-type SearchParams = { artist: string };
+type SearchParams = { artist: string; artistId?: string };
 type Status = 'loading' | 'error' | 'ready';
 
 const TRACKS_LIMIT = 25;
@@ -34,7 +35,7 @@ const ALBUMS_LIMIT = 30;
 const PLAY_BUTTON_SIZE = 58;
 
 export default function ArtistScreen() {
-  const { artist: artistName } = useLocalSearchParams<SearchParams>();
+  const { artist: artistName, artistId } = useLocalSearchParams<SearchParams>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, sharedStyles } = useTheme();
@@ -49,11 +50,18 @@ export default function ArtistScreen() {
   const [albums, setAlbums] = useState<DeezerAlbum[]>([]);
   const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
 
-  const load = useCallback(async (name: string) => {
+  const load = useCallback(async (name: string, id?: string) => {
     setStatus('loading');
     setError(null);
     try {
-      const artistResult = await searchArtist(name);
+      // Si on connaît l'id Deezer (navigation depuis la liste d'artistes de la
+      // recherche), on charge directement : la recherche par nom est floue et
+      // peut renvoyer un homonyme plus populaire (ex: "Odeya" -> ODESZA).
+      const numericId = id ? Number(id) : NaN;
+      const artistResult =
+        Number.isFinite(numericId) && numericId > 0
+          ? await getArtist(numericId)
+          : await searchArtist(name);
       if (!artistResult) {
         setError('Artiste introuvable.');
         setStatus('error');
@@ -74,8 +82,8 @@ export default function ArtistScreen() {
   }, []);
 
   useEffect(() => {
-    if (artistName) load(artistName);
-  }, [artistName, load]);
+    if (artistName || artistId) load(artistName, artistId);
+  }, [artistName, artistId, load]);
 
   const openAlbum = useCallback(
     (album: DeezerAlbum) => {
@@ -124,7 +132,7 @@ export default function ArtistScreen() {
       </Pressable>
 
       {status === 'loading' && <LoadingView label="Chargement de l'artiste..." />}
-      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(artistName)} />}
+      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(artistName, artistId)} />}
       {status === 'ready' && (
         <FlatList
           data={tracks}

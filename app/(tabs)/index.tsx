@@ -3,14 +3,18 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { searchArtists, type DeezerArtist } from '@/api/deezer';
 import { searchVideos, searchVideosNextPage } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
+import { ArtistCard } from '@/components/ArtistCard';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -34,6 +38,7 @@ export default function SearchScreen() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<VideoSummary[]>([]);
+  const [artists, setArtists] = useState<DeezerArtist[]>([]);
   const [nextpage, setNextpage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const activeQuery = useRef('');
@@ -45,9 +50,15 @@ export default function SearchScreen() {
     setStatus('loading');
     setError(null);
     try {
-      const res = await searchVideos(trimmed);
+      // La recherche d'artistes ne doit pas faire échouer la recherche vidéo :
+      // en cas d'erreur Deezer on affiche simplement les vidéos seules.
+      const [res, artistResults] = await Promise.all([
+        searchVideos(trimmed),
+        searchArtists(trimmed).catch(() => [] as DeezerArtist[]),
+      ]);
       if (activeQuery.current !== trimmed) return; // une recherche plus récente a été lancée entre-temps
       setResults(dedupeById(res.items));
+      setArtists(artistResults);
       setNextpage(res.nextpage);
       setStatus('ready');
     } catch (e) {
@@ -78,6 +89,18 @@ export default function SearchScreen() {
     if (!trimmed) return;
     router.push({ pathname: '/music/artist', params: { artist: trimmed } });
   }, [query, router]);
+
+  // Navigation avec l'id Deezer : l'écran artiste charge alors directement le
+  // bon profil, sans repasser par une recherche par nom ambiguë.
+  const openArtistProfile = useCallback(
+    (artist: DeezerArtist) => {
+      router.push({
+        pathname: '/music/artist',
+        params: { artist: artist.name, artistId: String(artist.id) },
+      });
+    },
+    [router],
+  );
 
   return (
     <View style={styles.container}>
@@ -118,15 +141,34 @@ export default function SearchScreen() {
       )}
       {status === 'loading' && <LoadingView label="Recherche en cours..." />}
       {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => runSearch(query)} />}
-      {status === 'ready' && results.length === 0 && (
+      {status === 'ready' && results.length === 0 && artists.length === 0 && (
         <EmptyView icon="search-outline" title="Aucun résultat" message="Essaie avec d'autres mots-clés." />
       )}
-      {status === 'ready' && results.length > 0 && (
+      {status === 'ready' && (results.length > 0 || artists.length > 0) && (
         <FlatList
           data={results}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            artists.length > 0 ? (
+              <View style={styles.artistsSection}>
+                <Text style={styles.sectionLabel}>Artistes</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.artistsList}
+                >
+                  {artists.map((artist) => (
+                    <View key={artist.id} style={styles.artistCardWrap}>
+                      <ArtistCard artist={artist} onPress={() => openArtistProfile(artist)} />
+                    </View>
+                  ))}
+                </ScrollView>
+                {results.length > 0 && <Text style={styles.sectionLabel}>Vidéos</Text>}
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <VideoListItem
               video={item}
@@ -187,6 +229,22 @@ function createStyles(colors: ColorPalette) {
     list: {
       paddingHorizontal: 20,
       paddingTop: 4,
+    },
+    artistsSection: {
+      marginBottom: 4,
+    },
+    sectionLabel: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+      marginTop: 4,
+      marginBottom: 10,
+    },
+    artistsList: {
+      paddingBottom: 8,
+    },
+    artistCardWrap: {
+      marginRight: 12,
     },
   });
 }
