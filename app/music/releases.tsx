@@ -28,7 +28,7 @@ export default function ReleasesScreen() {
   // visite, mais passent "vues" en stockage dès l'affichage : le badge de
   // l'onglet Musique retombe à zéro sans faire disparaître le repère visuel
   // sous les yeux de l'utilisateur.
-  const [newIds, setNewIds] = useState<Set<number>>(new Set());
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const absorbUnseen = useCallback(() => {
     const unseen = getReleasesFeedSync().filter((i) => !i.seen);
     if (unseen.length === 0) return;
@@ -57,11 +57,8 @@ export default function ReleasesScreen() {
   }, [absorbUnseen]);
 
   const openArtist = useCallback(
-    (artistId: number, name: string) => {
-      router.push({
-        pathname: '/music/artist',
-        params: { artist: name, artistId: String(artistId) },
-      });
+    (browseId: string, name: string) => {
+      router.push({ pathname: '/music/artist', params: { browseId, name } });
     },
     [router],
   );
@@ -70,7 +67,7 @@ export default function ReleasesScreen() {
     (item: ReleaseFeedItem) => {
       router.push({
         pathname: '/music/album',
-        params: { albumId: String(item.albumId), title: item.title, coverUrl: item.coverUrl },
+        params: { browseId: item.albumId, title: item.title, thumbnail: item.coverUrl },
       });
     },
     [router],

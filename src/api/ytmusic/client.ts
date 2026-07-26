@@ -70,6 +70,25 @@ async function musicPost(endpoint: string, body: Record<string, unknown>): Promi
   return res.json();
 }
 
+/**
+ * Pagination : les jetons `nextContinuationData` de YouTube Music ne sont
+ * honorés que passés en paramètres d'URL (`ctoken`/`continuation`/`type`).
+ * Envoyés dans le corps de la requête, la réponse revient vide.
+ */
+async function musicPostContinuation(endpoint: string, token: string): Promise<any> {
+  const encoded = encodeURIComponent(token);
+  const res = await fetch(
+    `${MUSIC_API_URL}${endpoint}?prettyPrint=false&ctoken=${encoded}&continuation=${encoded}&type=next`,
+    {
+      method: 'POST',
+      headers: MUSIC_HEADERS,
+      body: JSON.stringify({ context: musicContext() }),
+    },
+  );
+  if (!res.ok) throw new Error(`YouTube Music ${endpoint} a répondu ${res.status}`);
+  return res.json();
+}
+
 /** Contenu du sectionListRenderer du premier onglet d'une réponse browse. */
 function sectionListOf(data: any): { contents: any[]; header: any; continuation: string | null } {
   const sectionList =
@@ -105,7 +124,7 @@ export async function getMusicHome(options?: {
   continuation?: string;
 }): Promise<MusicHomePage> {
   if (options?.continuation) {
-    const data = await musicPost('browse', { continuation: options.continuation });
+    const data = await musicPostContinuation('browse', options.continuation);
     const cont = data?.continuationContents?.sectionListContinuation;
     return {
       chips: [],
@@ -165,7 +184,7 @@ export async function searchMusic(
 }
 
 export async function searchMusicContinuation(continuation: string): Promise<SearchResultPage> {
-  const data = await musicPost('search', { continuation });
+  const data = await musicPostContinuation('search', continuation);
   return parseSearchResponse(data);
 }
 
@@ -273,7 +292,8 @@ export async function getArtistPage(browseId: string): Promise<ArtistPageData> {
   // (une playlist VL... avec tous les titres).
   let songs: YTSong[] = [];
   let songsMoreBrowseId: string | null = null;
-  for (const content of contents) {
+  let songsShelfIndex = -1;
+  for (const [index, content] of contents.entries()) {
     const shelf = content?.musicShelfRenderer;
     if (!shelf) continue;
     const parsed = (shelf.contents ?? [])
@@ -282,11 +302,16 @@ export async function getArtistPage(browseId: string): Promise<ArtistPageData> {
     if (parsed.length > 0) {
       songs = parsed;
       songsMoreBrowseId = shelf.bottomEndpoint?.browseEndpoint?.browseId ?? null;
+      songsShelfIndex = index;
       break;
     }
   }
 
-  const sections = parseSections(contents).filter((s) => s.items.length > 0);
+  // Cette étagère est déjà rendue comme liste de titres : la laisser dans les
+  // sections l'afficherait une seconde fois en carrousel.
+  const sections = parseSections(
+    contents.filter((_: unknown, index: number) => index !== songsShelfIndex),
+  ).filter((s) => s.items.length > 0);
 
   return {
     browseId,
@@ -379,6 +404,10 @@ export async function getPlaylistPage(playlistId: string): Promise<PlaylistPageD
   };
 }
 
+// Contrairement à la recherche et à l'accueil, les listes de titres paginent
+// avec un jeton `continuationCommand`, qui ne fonctionne que dans le corps de
+// la requête — envoyé en paramètre d'URL, YouTube Music renvoie la première
+// page à la place de la suivante.
 export async function getPlaylistContinuation(
   continuation: string,
 ): Promise<{ songs: YTSong[]; continuation: string | null }> {
@@ -387,7 +416,6 @@ export async function getPlaylistContinuation(
     data?.continuationContents?.musicPlaylistShelfContinuation ??
     data?.continuationContents?.musicShelfContinuation;
   if (cont) return parsePlaylistSongs(cont);
-  // Nouvelle forme : onResponseReceivedActions -> appendContinuationItemsAction.
   const appended = findFirst(data, 'appendContinuationItemsAction');
   return parsePlaylistSongs({ contents: appended?.continuationItems ?? [] });
 }

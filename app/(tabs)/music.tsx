@@ -127,6 +127,14 @@ export default function MusicHomeScreen() {
         right={
           <View style={styles.headerActions}>
             <Pressable
+              onPress={() => router.push('/music/search')}
+              hitSlop={8}
+              accessibilityLabel="Rechercher"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="search" size={25} color={colors.text} />
+            </Pressable>
+            <Pressable
               onPress={() => router.push('/music/explore')}
               hitSlop={8}
               accessibilityLabel="Explorer"

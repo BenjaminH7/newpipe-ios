@@ -44,6 +44,18 @@ const FILTERS: { key: MusicSearchFilter; label: string }[] = [
 
 type Status = 'idle' | 'loading' | 'error' | 'ready';
 
+/** Identité stable d'un résultat, quel que soit son type. */
+function itemKey(item: YTItem): string {
+  switch (item.type) {
+    case 'song':
+      return `song-${item.id}`;
+    case 'playlist':
+      return `playlist-${item.playlistId}`;
+    default:
+      return `${item.type}-${item.browseId}`;
+  }
+}
+
 export default function MusicSearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -127,7 +139,10 @@ export default function MusicSearchScreen() {
     setLoadingMore(true);
     try {
       const next = await searchMusicContinuation(continuation);
-      setItems((prev) => [...prev, ...next.items]);
+      setItems((prev) => {
+        const known = new Set(prev.map(itemKey));
+        return [...prev, ...next.items.filter((i) => !known.has(itemKey(i)))];
+      });
       setContinuation(next.continuation);
     } catch {
       setContinuation(null);
@@ -234,15 +249,7 @@ export default function MusicSearchScreen() {
           {status === 'ready' && (
             <FlatList
               data={items}
-              keyExtractor={(item, index) =>
-                `${item.type}-${
-                  item.type === 'song'
-                    ? item.id
-                    : item.type === 'playlist'
-                      ? item.playlistId
-                      : item.browseId
-                }-${index}`
-              }
+              keyExtractor={(item, index) => `${itemKey(item)}-${index}`}
               contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}

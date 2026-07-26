@@ -7,10 +7,7 @@ import type {
   MoodCategory,
   MoodSection,
   MusicSection,
-  YTAlbum,
-  YTArtist,
   YTItem,
-  YTPlaylist,
   YTSong,
 } from './types';
 

@@ -66,11 +66,18 @@ export default function PlaylistScreen() {
     setLoadingMore(true);
     try {
       const next = await getPlaylistContinuation(playlist.continuation);
-      setPlaylist((prev) =>
-        prev
-          ? { ...prev, songs: [...prev.songs, ...next.songs], continuation: next.continuation }
-          : prev,
-      );
+      setPlaylist((prev) => {
+        if (!prev) return prev;
+        // Certaines playlists auto-générées renvoient leur première page en
+        // guise de continuation : sans ce filtre, les titres se dupliquent.
+        const known = new Set(prev.songs.map((s) => s.id));
+        const fresh = next.songs.filter((s) => !known.has(s.id));
+        return {
+          ...prev,
+          songs: [...prev.songs, ...fresh],
+          continuation: fresh.length > 0 ? next.continuation : null,
+        };
+      });
     } catch {
       setPlaylist((prev) => (prev ? { ...prev, continuation: null } : prev));
     } finally {

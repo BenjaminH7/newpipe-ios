@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { RECORD_TYPE_LABELS } from '@/components/AlbumCard';
 import type { ReleaseFeedItem } from '@/storage/releasesFeed';
 import { useTheme, type ColorPalette } from '@/theme';
-import { formatUploadDate } from '@/utils/format';
 
 // Ligne du fil Nouveautés : pochette carrée, titre, artiste • type • date.
 // `isNew` affiche un point accent — sorties pas encore vues au moment où
@@ -21,9 +19,8 @@ export function ReleaseListItem({
   const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const typeLabel = RECORD_TYPE_LABELS[item.recordType] ?? '';
-  const dateLabel = item.releaseDate ? formatUploadDate(item.releaseDate) : '';
-  const subtitle = [item.artistName, typeLabel, dateLabel].filter(Boolean).join(' • ');
+  // YouTube Music ne donne qu'une année de sortie, pas une date pleine.
+  const subtitle = [item.artistName, item.releaseDate].filter(Boolean).join(' • ');
 
   return (
     <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={onPress}>

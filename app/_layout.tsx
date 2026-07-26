@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { JsEngineView } from '@/api/innertube/JsEngineView';
+import { SongMenuProvider } from '@/components/music/SongMenu';
 import { useNewReleasesAutoCheck } from '@/hooks/useReleasesFeed';
 import { PlayerProvider } from '@/player/PlayerContext';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -25,37 +26,45 @@ function RootLayoutContent() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <JsEngineView />
       <PlayerProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerShadowVisible: false,
-            headerTintColor: colors.text,
-            headerTitleStyle: { color: colors.text, fontWeight: '700' },
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="video/[id]" options={{ title: '' }} />
-          {/* Modal classique plutôt que formSheet : les detents de formSheet
-              cassent la hauteur des enfants en flex (la pochette mesurait 0
-              et ne s'affichait pas). Le pageSheet iOS garde le glissement et
-              le swipe-down façon Spotify ; Android affiche un plein écran.
-              Fond forcé en sombre : le player est toujours sombre (pochette
-              floutée + voile noir), même en thème clair. */}
-          <Stack.Screen
-            name="music/player"
-            options={{
-              headerShown: false,
-              presentation: 'modal',
-              contentStyle: { backgroundColor: '#121212' },
+        <SongMenuProvider>
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerShadowVisible: false,
+              headerTintColor: colors.text,
+              headerTitleStyle: { color: colors.text, fontWeight: '700' },
+              contentStyle: { backgroundColor: colors.background },
             }}
-          />
-          <Stack.Screen name="music/artist" options={{ headerShown: false }} />
-          <Stack.Screen name="music/album" options={{ headerShown: false }} />
-          <Stack.Screen name="music/releases" options={{ title: 'Nouveautés' }} />
-          <Stack.Screen name="history" options={{ title: 'Historique' }} />
-          <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
-        </Stack>
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="video/[id]" options={{ title: '' }} />
+            {/* Modal classique plutôt que formSheet : les detents de formSheet
+                cassent la hauteur des enfants en flex (la pochette mesurait 0
+                et ne s'affichait pas). Le pageSheet iOS garde le glissement et
+                le swipe-down façon Spotify ; Android affiche un plein écran.
+                Fond forcé en sombre : le player est toujours sombre (pochette
+                floutée + voile noir), même en thème clair. */}
+            <Stack.Screen
+              name="music/player"
+              options={{
+                headerShown: false,
+                presentation: 'modal',
+                contentStyle: { backgroundColor: '#121212' },
+              }}
+            />
+            <Stack.Screen name="music/artist" options={{ headerShown: false }} />
+            <Stack.Screen name="music/album" options={{ headerShown: false }} />
+            <Stack.Screen name="music/playlist" options={{ headerShown: false }} />
+            <Stack.Screen name="music/search" options={{ headerShown: false }} />
+            <Stack.Screen name="music/browse" options={{ title: '' }} />
+            <Stack.Screen name="music/mood" options={{ title: '' }} />
+            <Stack.Screen name="music/explore" options={{ title: 'Explorer' }} />
+            <Stack.Screen name="music/local-playlist" options={{ title: 'Playlist' }} />
+            <Stack.Screen name="music/releases" options={{ title: 'Nouveautés' }} />
+            <Stack.Screen name="history" options={{ title: 'Historique' }} />
+            <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
+          </Stack>
+        </SongMenuProvider>
       </PlayerProvider>
     </SafeAreaProvider>
   );
