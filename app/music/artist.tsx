@@ -15,15 +15,15 @@ import {
   type DeezerArtist,
   type DeezerTrack,
 } from '@/api/deezer';
-import { toMusicTrack } from '@/api/musicMatch';
+import { pendingMusicTrack, pendingTrackId, toMusicTrack } from '@/api/musicMatch';
 import { AlbumCard } from '@/components/AlbumCard';
 import { ArtistTrackRow } from '@/components/ArtistTrackRow';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
+import { useIsArtistFollowed, useToggleArtistFollow } from '@/hooks/useFollowedArtists';
 import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
 import { usePlayer } from '@/player/PlayerContext';
-import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 import { formatCount } from '@/utils/format';
 
@@ -49,6 +49,8 @@ export default function ArtistScreen() {
   const [tracks, setTracks] = useState<DeezerTrack[]>([]);
   const [albums, setAlbums] = useState<DeezerAlbum[]>([]);
   const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
+  const isFollowed = useIsArtistFollowed(artistInfo?.id ?? null);
+  const toggleFollow = useToggleArtistFollow();
 
   const load = useCallback(async (name: string, id?: string) => {
     setStatus('loading');
@@ -103,13 +105,16 @@ export default function ArtistScreen() {
         return;
       }
 
+      // La file contient TOUS les titres populaires : ceux pas encore résolus
+      // côté YouTube y entrent en différé (résolus par le lecteur au moment
+      // de les jouer ou en préchargement). Sinon, un clic rapide fige une
+      // file quasi vide et l'avance automatique s'arrête à la fin de la
+      // piste cliquée.
       const merged = { ...resolvedRef.current, [track.id]: video };
-      const queue = tracks
-        .map((t) => {
-          const v = merged[t.id];
-          return v && v !== 'pending' ? toMusicTrack(v, t) : null;
-        })
-        .filter((t): t is MusicTrack => t !== null);
+      const queue = tracks.map((t) => {
+        const v = merged[t.id];
+        return v && v !== 'pending' ? toMusicTrack(v, t) : pendingMusicTrack(t);
+      });
 
       playTrack(toMusicTrack(video, track), queue);
     },
@@ -172,17 +177,42 @@ export default function ArtistScreen() {
               </View>
 
               <View style={styles.actionsRow}>
-                <Pressable hitSlop={12} onPress={toggleShuffle} style={styles.shuffleButton}>
-                  <Ionicons name="shuffle" size={26} color={shuffle ? colors.accent : colors.text} />
-                </Pressable>
-                <Pressable
-                  hitSlop={8}
-                  onPress={handlePlayAll}
-                  disabled={tracks.length === 0}
-                  style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
-                >
-                  <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
-                </Pressable>
+                {/* Suivre = s'abonner aux nouveautés : la discographie affichée
+                    sert de point de départ, seules les sorties postérieures
+                    entreront dans le fil Nouveautés. */}
+                {artistInfo && (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => toggleFollow(artistInfo, albums.map((a) => a.id))}
+                    style={({ pressed }) => [
+                      styles.followButton,
+                      isFollowed && styles.followButtonActive,
+                      pressed && styles.followButtonPressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name={isFollowed ? 'notifications' : 'notifications-outline'}
+                      size={16}
+                      color={isFollowed ? colors.accent : colors.text}
+                    />
+                    <Text style={[styles.followLabel, isFollowed && styles.followLabelActive]}>
+                      {isFollowed ? 'Suivi' : 'Suivre'}
+                    </Text>
+                  </Pressable>
+                )}
+                <View style={styles.playControls}>
+                  <Pressable hitSlop={12} onPress={toggleShuffle} style={styles.shuffleButton}>
+                    <Ionicons name="shuffle" size={26} color={shuffle ? colors.accent : colors.text} />
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={handlePlayAll}
+                    disabled={tracks.length === 0}
+                    style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+                  >
+                    <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
+                  </Pressable>
+                </View>
               </View>
 
               {albums.length > 0 && (
@@ -208,7 +238,12 @@ export default function ArtistScreen() {
           renderItem={({ item, index }) => {
             const video = resolved[item.id];
             const activeVideo = video && video !== 'pending' ? video : null;
-            const isActive = !!currentTrack && !!activeVideo && activeVideo.id === currentTrack.id;
+            // Le second test couvre la piste courante encore différée (le
+            // lecteur n'a pas fini de la résoudre côté YouTube).
+            const isActive =
+              !!currentTrack &&
+              ((!!activeVideo && activeVideo.id === currentTrack.id) ||
+                currentTrack.id === pendingTrackId(item));
             return (
               <ArtistTrackRow
                 rank={index + 1}
@@ -305,16 +340,45 @@ function createStyles(colors: ColorPalette) {
       fontWeight: '600',
       marginTop: 6,
     },
-    // Shuffle et play regroupés à droite, comme sur les pages artiste de
-    // Spotify — le bouton play chevauche le bas du hero.
+    // Pilule "Suivre" à gauche, shuffle et play regroupés à droite, comme sur
+    // les pages artiste de Spotify — le bouton play chevauche le bas du hero.
     actionsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 16,
+      justifyContent: 'space-between',
       paddingHorizontal: 20,
       marginTop: -(PLAY_BUTTON_SIZE / 2),
       marginBottom: 8,
+    },
+    playControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    followButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderColor: colors.muted,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+    },
+    followButtonActive: {
+      borderColor: colors.accent,
+    },
+    followButtonPressed: {
+      opacity: 0.7,
+    },
+    followLabel: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    followLabelActive: {
+      color: colors.accent,
     },
     shuffleButton: {
       width: 44,

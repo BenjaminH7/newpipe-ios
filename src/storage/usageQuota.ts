@@ -1,6 +1,7 @@
 // Suivi du temps de lecture quotidien (vidéo / musique séparément), sur le
 // même modèle pub/sub qu'ailleurs, persisté via AsyncStorage. Remise à zéro
-// automatique dès que la date locale change (minuit).
+// automatique dès que la date locale change (minuit). Les cumuls mensuels
+// survivent au reset quotidien pour offrir un historique mois par mois.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@youtubeclient/usageQuota';
@@ -10,10 +11,20 @@ const STORAGE_KEY = '@youtubeclient/usageQuota';
 // effectif, pas le temps passé en arrière-plan.
 const MAX_TICK_GAP_SECONDS = 3;
 
-interface UsageState {
+// Historique mensuel borné pour éviter une croissance sans fin du stockage.
+const MAX_MONTHS_KEPT = 24;
+
+export interface MonthUsage {
+  videoSeconds: number;
+  musicSeconds: number;
+}
+
+export interface UsageState {
   date: string;
   videoSeconds: number;
   musicSeconds: number;
+  // Cumuls par mois, clé "AAAA-MM". Le mois courant inclut le jour en cours.
+  months: Record<string, MonthUsage>;
 }
 
 function todayKey(): string {
@@ -21,8 +32,13 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+export function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function emptyState(): UsageState {
-  return { date: todayKey(), videoSeconds: 0, musicSeconds: 0 };
+  return { date: todayKey(), videoSeconds: 0, musicSeconds: 0, months: {} };
 }
 
 let cache: UsageState = emptyState();
@@ -41,7 +57,7 @@ async function persist() {
 function rolloverIfNeeded(): boolean {
   const today = todayKey();
   if (cache.date === today) return false;
-  cache = emptyState();
+  cache = { ...emptyState(), months: cache.months };
   return true;
 }
 
@@ -62,7 +78,15 @@ export function loadUsage(): Promise<UsageState> {
 
   loadPromise = AsyncStorage.getItem(STORAGE_KEY)
     .then((raw) => {
-      cache = raw ? { ...emptyState(), ...JSON.parse(raw) } : emptyState();
+      const parsed = raw ? JSON.parse(raw) : null;
+      cache = parsed ? { ...emptyState(), ...parsed } : emptyState();
+      // Migration : les anciens états n'avaient pas de cumuls mensuels — on
+      // ensemence le mois courant avec le compteur du jour déjà accumulé.
+      if (parsed && !parsed.months && cache.date === todayKey()) {
+        cache.months = {
+          [currentMonthKey()]: { videoSeconds: cache.videoSeconds, musicSeconds: cache.musicSeconds },
+        };
+      }
       rolloverIfNeeded();
       loaded = true;
       notify();
@@ -77,18 +101,26 @@ export function loadUsage(): Promise<UsageState> {
   return loadPromise;
 }
 
+function addSeconds(kind: 'videoSeconds' | 'musicSeconds', seconds: number) {
+  rolloverIfNeeded();
+  const key = currentMonthKey();
+  const month = cache.months[key] ?? { videoSeconds: 0, musicSeconds: 0 };
+  const months = { ...cache.months, [key]: { ...month, [kind]: month[kind] + seconds } };
+  const keys = Object.keys(months).sort();
+  while (keys.length > MAX_MONTHS_KEPT) delete months[keys.shift()!];
+  cache = { ...cache, [kind]: cache[kind] + seconds, months };
+}
+
 export async function addVideoWatchSeconds(seconds: number): Promise<void> {
   if (seconds <= 0 || seconds > MAX_TICK_GAP_SECONDS) return;
-  rolloverIfNeeded();
-  cache = { ...cache, videoSeconds: cache.videoSeconds + seconds };
+  addSeconds('videoSeconds', seconds);
   notify();
   await persist();
 }
 
 export async function addMusicListenSeconds(seconds: number): Promise<void> {
   if (seconds <= 0 || seconds > MAX_TICK_GAP_SECONDS) return;
-  rolloverIfNeeded();
-  cache = { ...cache, musicSeconds: cache.musicSeconds + seconds };
+  addSeconds('musicSeconds', seconds);
   notify();
   await persist();
 }

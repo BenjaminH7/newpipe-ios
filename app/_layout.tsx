@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { JsEngineView } from '@/api/innertube/JsEngineView';
+import { useNewReleasesAutoCheck } from '@/hooks/useReleasesFeed';
 import { PlayerProvider } from '@/player/PlayerContext';
 import { ThemeProvider, useTheme } from '@/theme';
 
@@ -15,6 +16,9 @@ export default function RootLayout() {
 
 function RootLayoutContent() {
   const { colors, scheme } = useTheme();
+  // Nouveautés musicales des artistes suivis : check au lancement puis à
+  // chaque retour au premier plan (throttlé côté checker).
+  useNewReleasesAutoCheck();
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.background }}>
@@ -48,7 +52,9 @@ function RootLayoutContent() {
           />
           <Stack.Screen name="music/artist" options={{ headerShown: false }} />
           <Stack.Screen name="music/album" options={{ headerShown: false }} />
+          <Stack.Screen name="music/releases" options={{ title: 'Nouveautés' }} />
           <Stack.Screen name="history" options={{ title: 'Historique' }} />
+          <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
         </Stack>
       </PlayerProvider>
     </SafeAreaProvider>

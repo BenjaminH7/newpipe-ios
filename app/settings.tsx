@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useUsageStats } from '@/hooks/useUsageQuota';
+import { currentMonthKey } from '@/storage/usageQuota';
 import {
   useHidePlaylistsTab,
   useHideSubscriptionsTab,
@@ -11,7 +13,6 @@ import {
   useVideoQuotaMinutes,
 } from '@/hooks/useSettings';
 import { MiniPlayer } from '@/components/MiniPlayer';
-import { ScreenHeader } from '@/components/ScreenHeader';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import type { ThemeMode } from '@/storage/settings';
 import { useTheme, type ColorPalette } from '@/theme';
@@ -109,6 +110,44 @@ function QuotaMinutesRow({
   );
 }
 
+const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
+
+function formatMonthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  const label = monthFormatter.format(new Date(year, month - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function formatListenTime(totalSeconds: number): string {
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  if (hours > 0) return `${hours} h ${String(totalMinutes % 60).padStart(2, '0')}`;
+  return `${totalMinutes} min`;
+}
+
+function UsageCell({
+  videoSeconds,
+  musicSeconds,
+  sharedStyles,
+  styles,
+}: {
+  videoSeconds: number;
+  musicSeconds: number;
+  sharedStyles: SharedStyles;
+  styles: Styles;
+}) {
+  return (
+    <View style={styles.usageCell}>
+      <Text style={sharedStyles.mutedText}>
+        Vidéo <Text style={[sharedStyles.text, styles.usageValue]}>{formatListenTime(videoSeconds)}</Text>
+      </Text>
+      <Text style={sharedStyles.mutedText}>
+        Musique <Text style={[sharedStyles.text, styles.usageValue]}>{formatListenTime(musicSeconds)}</Text>
+      </Text>
+    </View>
+  );
+}
+
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Système' },
   { value: 'light', label: 'Clair' },
@@ -158,10 +197,16 @@ export default function SettingsScreen() {
   const [musicQuotaMinutes, setMusicQuotaMinutes] = useMusicQuotaMinutes();
   const [hideSubscriptionsTab, setHideSubscriptionsTab] = useHideSubscriptionsTab();
   const [hidePlaylistsTab, setHidePlaylistsTab] = useHidePlaylistsTab();
+  const usage = useUsageStats();
+  // Toujours afficher le mois courant, même sans écoute, puis l'historique du
+  // plus récent au plus ancien.
+  const monthKeys = useMemo(
+    () => [...new Set([currentMonthKey(), ...Object.keys(usage.months)])].sort().reverse(),
+    [usage.months],
+  );
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Réglages" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
@@ -229,6 +274,41 @@ export default function SettingsScreen() {
           sharedStyles={sharedStyles}
           styles={styles}
         />
+      </View>
+
+      <Text style={styles.sectionTitle}>Temps d’écoute</Text>
+      <View style={[sharedStyles.card, styles.section]}>
+        <View style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={[sharedStyles.text, styles.rowTitle]}>Aujourd’hui</Text>
+            <Text style={sharedStyles.mutedText}>Lecture active depuis minuit.</Text>
+          </View>
+          <UsageCell
+            videoSeconds={usage.videoSeconds}
+            musicSeconds={usage.musicSeconds}
+            sharedStyles={sharedStyles}
+            styles={styles}
+          />
+        </View>
+        {monthKeys.map((key) => {
+          const month = usage.months[key] ?? { videoSeconds: 0, musicSeconds: 0 };
+          return (
+            <Fragment key={key}>
+              <View style={styles.separator} />
+              <View style={styles.row}>
+                <View style={styles.rowText}>
+                  <Text style={[sharedStyles.text, styles.rowTitle]}>{formatMonthLabel(key)}</Text>
+                </View>
+                <UsageCell
+                  videoSeconds={month.videoSeconds}
+                  musicSeconds={month.musicSeconds}
+                  sharedStyles={sharedStyles}
+                  styles={styles}
+                />
+              </View>
+            </Fragment>
+          );
+        })}
       </View>
 
       <Text style={styles.sectionTitle}>Quota de lecture</Text>
@@ -327,6 +407,14 @@ function createStyles(colors: ColorPalette) {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border,
       marginLeft: 16,
+    },
+    usageCell: {
+      alignItems: 'flex-end',
+      gap: 2,
+    },
+    usageValue: {
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
     },
     minutesInput: {
       backgroundColor: colors.background,

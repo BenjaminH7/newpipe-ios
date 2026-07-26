@@ -6,7 +6,7 @@ import { useTheme, type ColorPalette } from '@/theme';
 
 const CARD_WIDTH = 130;
 
-const RECORD_TYPE_LABELS: Record<string, string> = {
+export const RECORD_TYPE_LABELS: Record<string, string> = {
   album: 'Album',
   single: 'Single',
   ep: 'EP',

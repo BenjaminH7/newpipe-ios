@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useMusicQuotaMinutes, useVideoQuotaMinutes } from '@/hooks/useSettings';
-import { getUsageSync, loadUsage, subscribeUsage } from '@/storage/usageQuota';
+import { getUsageSync, loadUsage, subscribeUsage, type UsageState } from '@/storage/usageQuota';
+
+// État complet du temps d'écoute (jour courant + cumuls mensuels), réactif.
+export function useUsageStats(): UsageState {
+  const [usage, setUsage] = useState(getUsageSync());
+
+  useEffect(() => {
+    loadUsage().then(setUsage);
+    return subscribeUsage(setUsage);
+  }, []);
+
+  return usage;
+}
 
 export function useVideoQuotaExceeded(): boolean {
   const [usage, setUsage] = useState(getUsageSync());

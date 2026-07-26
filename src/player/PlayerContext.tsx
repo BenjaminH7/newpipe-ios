@@ -8,7 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { radioTrackToMusicTrack } from '@/api/musicMatch';
+import { isPendingMusicTrack, radioTrackToMusicTrack, resolvePendingMusicTrack } from '@/api/musicMatch';
 import { getRadioQueue, getVideoInfo } from '@/api/youtube';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { recordMusicPlayed } from '@/storage/history';
@@ -47,6 +47,13 @@ interface PlayerContextValue {
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
+
+// Les URL de flux YouTube sont signées et expirent (paramètre `expire`, lié à
+// l'IP) : au-delà de cette durée on re-résout un flux frais plutôt que de
+// servir une URL morte du cache. Les fichiers locaux, eux, se re-résolvent
+// instantanément, donc un TTL uniforme ne coûte rien.
+const PLAYBACK_URI_TTL_MS = 45 * 60_000;
+const PLAYBACK_URI_CACHE_MAX = 8;
 
 // Piste locale si déjà téléchargée (lecture hors-ligne) ; sinon on retente un
 // flux audio frais auprès de YouTube (best-effort, nécessite le réseau).
@@ -135,20 +142,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // joue encore (resolvePlaybackUri passe par plusieurs requêtes réseau et
   // la WebView BotGuard, plusieurs secondes) : sans ça, chaque transition
   // attend tout ce pipeline à froid, d'où le "lag" au changement de piste.
-  const playbackUriCache = useRef(new Map<string, Promise<string | null>>()).current;
+  // Chaque entrée porte une échéance (voir PLAYBACK_URI_TTL_MS) et l'accès
+  // rafraîchit sa recence : l'éviction retire bien la moins récemment utilisée.
+  const playbackUriCache = useRef(
+    new Map<string, { promise: Promise<string | null>; expiresAt: number }>(),
+  ).current;
 
   const getPlaybackUri = useCallback(
     (track: MusicTrack): Promise<string | null> => {
       const cached = playbackUriCache.get(track.id);
-      if (cached) return cached;
+      if (cached && cached.expiresAt > Date.now()) {
+        playbackUriCache.delete(track.id);
+        playbackUriCache.set(track.id, cached);
+        return cached.promise;
+      }
       const promise = resolvePlaybackUri(track).then((uri) => {
         // Échec : on ne garde pas l'échec en cache pour permettre une
         // nouvelle tentative (réseau temporairement indisponible, etc.).
-        if (uri === null) playbackUriCache.delete(track.id);
+        if (uri === null && playbackUriCache.get(track.id)?.promise === promise) {
+          playbackUriCache.delete(track.id);
+        }
         return uri;
       });
-      playbackUriCache.set(track.id, promise);
-      if (playbackUriCache.size > 8) {
+      playbackUriCache.set(track.id, { promise, expiresAt: Date.now() + PLAYBACK_URI_TTL_MS });
+      if (playbackUriCache.size > PLAYBACK_URI_CACHE_MAX) {
         const oldestKey = playbackUriCache.keys().next().value;
         if (oldestKey !== undefined) playbackUriCache.delete(oldestKey);
       }
@@ -156,6 +173,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [playbackUriCache],
   );
+
+  // Résout une entrée de file différée (id "deezer:<id>", voir musicMatch) et
+  // la remplace dans la file par sa version résolue, pour que l'avance par id
+  // (stepQueue, prefetch) reste cohérente. Renvoie la piste telle quelle si
+  // elle est déjà résolue.
+  const resolveQueueItem = useCallback(async (track: MusicTrack): Promise<MusicTrack | null> => {
+    if (!isPendingMusicTrack(track)) return track;
+    const resolved = await resolvePendingMusicTrack(track);
+    if (!resolved) return null;
+    setQueue((prev) => prev.map((t) => (t.id === track.id ? resolved : t)));
+    return resolved;
+  }, []);
 
   // Précharge le flux de la piste qui suivra `fromTrack` si l'avance est
   // prévisible (pas de lecture aléatoire, qui tire au sort au moment venu).
@@ -171,10 +200,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         nextIdx = 0;
       }
       const next = q[nextIdx];
-      if (next && next.id !== fromTrack.id) getPlaybackUri(next);
+      if (!next || next.id === fromTrack.id) return;
+      // Résolution YouTube différée puis flux : les deux étapes lentes de la
+      // piste suivante se font pendant que la courante joue encore.
+      resolveQueueItem(next).then((resolved) => {
+        if (resolved) getPlaybackUri(resolved);
+      });
     },
-    [getPlaybackUri],
+    [getPlaybackUri, resolveQueueItem],
   );
+
+  // Jeton d'annulation des chargements : chaque loadAndPlay invalide le
+  // précédent. On ne peut pas comparer les ids comme avant, car celui d'une
+  // entrée différée change en cours de chargement une fois résolue (et la
+  // ref de piste courante, synchronisée par effet, peut être en retard sur
+  // un await qui se résout en microtâche depuis le cache).
+  const loadTokenRef = useRef(0);
 
   const loadAndPlay = useCallback(
     async (track: MusicTrack) => {
@@ -185,6 +226,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
+      const token = ++loadTokenRef.current;
       quotaTickRef.current = null;
       pendingSeekRef.current = null;
       setCurrentTrack(track);
@@ -192,9 +234,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setPosition(0);
       setDuration(0);
 
-      const uri = await getPlaybackUri(track);
+      // Entrée différée (file d'album/artiste construite avant la fin de la
+      // résolution YouTube) : on résout maintenant, les métadonnées Deezer
+      // s'affichent déjà pendant ce temps.
+      const playable = await resolveQueueItem(track);
       // Une autre piste a été demandée entre-temps : on abandonne ce chargement.
-      if (currentTrackRef.current?.id !== track.id) return;
+      if (loadTokenRef.current !== token) return;
+      if (!playable) {
+        setIsBuffering(false);
+        return;
+      }
+      if (playable !== track) setCurrentTrack(playable);
+
+      const uri = await getPlaybackUri(playable);
+      if (loadTokenRef.current !== token) return;
       if (!uri) {
         setIsBuffering(false);
         return;
@@ -202,19 +255,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       try {
         await player.replaceAsync({
           uri,
-          metadata: { title: track.title, artist: track.artist, artwork: track.coverArtUrl },
+          metadata: { title: playable.title, artist: playable.artist, artwork: playable.coverArtUrl },
         });
-        if (currentTrackRef.current?.id !== track.id) return;
+        if (loadTokenRef.current !== token) return;
         player.play();
-        recordMusicPlayed(track);
-        prefetchNextTrack(track);
+        recordMusicPlayed(playable);
+        prefetchNextTrack(playable);
       } catch {
         // Flux hors-ligne indisponible ou expiré : on laisse la piste "en pause".
       } finally {
         setIsBuffering(false);
       }
     },
-    [player, getPlaybackUri, prefetchNextTrack],
+    [player, getPlaybackUri, prefetchNextTrack, resolveQueueItem],
   );
 
   const playTrack = useCallback(

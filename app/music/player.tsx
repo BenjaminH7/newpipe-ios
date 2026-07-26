@@ -159,6 +159,18 @@ export default function MusicPlayerScreen() {
     }, 4000);
   }, []);
 
+  // Toucher une ligne = sauter à ce moment de la chanson. On rend aussitôt la
+  // main à l'auto-scroll (même si l'utilisateur venait de faire défiler la
+  // liste à la main) pour que la ligne choisie se recentre.
+  const handleLyricsLinePress = useCallback(
+    (line: LyricsLine) => {
+      if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+      userScrollingRef.current = false;
+      seekTo(line.time);
+    },
+    [seekTo],
+  );
+
   useEffect(
     () => () => {
       if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
@@ -385,7 +397,10 @@ export default function MusicPlayerScreen() {
                 onScrollEndDrag={handleUserScrollEnd}
                 onMomentumScrollEnd={handleUserScrollEnd}
                 renderItem={({ item, index }) => (
-                  <View style={styles.lyricsLineWrap}>
+                  <Pressable
+                    style={({ pressed }) => [styles.lyricsLineWrap, pressed && styles.lyricsLinePressed]}
+                    onPress={() => handleLyricsLinePress(item)}
+                  >
                     <Text style={[styles.lyricsLine, index === activeLyricsLine && styles.lyricsLineActive]}>
                       {item.text || '♪'}
                     </Text>
@@ -399,7 +414,7 @@ export default function MusicPlayerScreen() {
                         {syncedTranslations[index]}
                       </Text>
                     )}
-                  </View>
+                  </Pressable>
                 )}
               />
             )}
@@ -557,7 +572,7 @@ export default function MusicPlayerScreen() {
           </View>
           <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={10}>
             <Ionicons
-              name={showLyrics ? 'mic' : 'mic-outline'}
+              name={showLyrics ? 'musical-notes' : 'musical-notes-outline'}
               size={22}
               color={showLyrics ? colors.accent : 'rgba(255,255,255,0.7)'}
             />
@@ -656,6 +671,9 @@ function createStyles(colors: ColorPalette) {
     },
     lyricsLineWrap: {
       marginBottom: 20,
+    },
+    lyricsLinePressed: {
+      opacity: 0.5,
     },
     lyricsLine: {
       color: 'rgba(255,255,255,0.6)',

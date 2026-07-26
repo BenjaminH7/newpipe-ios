@@ -45,7 +45,13 @@ export function resolveYoutubeTrack(
 
   const promise = searchVideos(`${artist} ${title}`)
     .then((res) => pickBestMatch(res.items, expectedDuration))
-    .catch(() => null);
+    .catch(() => null)
+    .then((match) => {
+      // Échec (réseau coupé, recherche vide) : on ne garde pas le null en
+      // cache, sinon le morceau resterait introuvable pour toute la session.
+      if (match === null && cache.get(key) === promise) cache.delete(key);
+      return match;
+    });
   cache.set(key, promise);
   return promise;
 }
@@ -65,6 +71,48 @@ export function toMusicTrack(video: VideoSummary, track: DeezerTrack): MusicTrac
     // N'est pas vraiment téléchargé : ce champ n'est consulté que par la
     // bibliothèque musicale (src/storage/musicLibrary.ts), jamais par la lecture.
     downloadStatus: 'downloaded',
+  };
+}
+
+// Entrée de file "différée" : morceau Deezer dont l'équivalent YouTube n'est
+// pas encore connu au moment où la file est construite (la résolution tourne
+// en tâche de fond, voir useYoutubeResolution). L'id sentinelle "deezer:<id>"
+// est résolu par le lecteur (PlayerContext) juste avant lecture ou en
+// préchargement — il ne doit jamais atteindre getVideoInfo.
+const PENDING_ID_PREFIX = 'deezer:';
+
+export function pendingTrackId(track: DeezerTrack): string {
+  return `${PENDING_ID_PREFIX}${track.id}`;
+}
+
+export function isPendingMusicTrack(track: MusicTrack): boolean {
+  return track.id.startsWith(PENDING_ID_PREFIX);
+}
+
+export function pendingMusicTrack(track: DeezerTrack): MusicTrack {
+  return {
+    id: pendingTrackId(track),
+    title: track.title,
+    artist: track.artist,
+    coverArtUrl: track.albumCoverUrl,
+    duration: track.duration,
+    addedAt: Date.now(),
+    localUri: null,
+    downloadStatus: 'downloaded',
+  };
+}
+
+// Résout une entrée différée vers sa vidéo YouTube en conservant les
+// métadonnées Deezer d'origine. Passe par le même cache que la résolution en
+// tâche de fond des écrans album/artiste : aucune recherche dupliquée.
+export async function resolvePendingMusicTrack(track: MusicTrack): Promise<MusicTrack | null> {
+  const video = await resolveYoutubeTrack(track.artist, track.title, track.duration);
+  if (!video) return null;
+  return {
+    ...track,
+    id: video.id,
+    coverArtUrl: track.coverArtUrl || video.thumbnail,
+    duration: track.duration >= 0 ? track.duration : video.duration,
   };
 }
 

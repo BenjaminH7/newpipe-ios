@@ -6,14 +6,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getAlbum, type DeezerAlbumDetails, type DeezerTrack } from '@/api/deezer';
-import { toMusicTrack } from '@/api/musicMatch';
+import { pendingMusicTrack, pendingTrackId, toMusicTrack } from '@/api/musicMatch';
 import { ArtistTrackRow } from '@/components/ArtistTrackRow';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
 import { usePlayer } from '@/player/PlayerContext';
-import type { MusicTrack } from '@/storage/musicLibrary';
 import { useTheme, type ColorPalette } from '@/theme';
 
 type SearchParams = { albumId: string; title?: string; coverUrl?: string };
@@ -81,13 +80,16 @@ export default function AlbumScreen() {
         return;
       }
 
+      // La file contient TOUTES les pistes de l'album : celles pas encore
+      // résolues côté YouTube y entrent en différé (résolues par le lecteur
+      // au moment de les jouer ou en préchargement). Sinon, un clic rapide
+      // fige une file quasi vide et l'avance automatique s'arrête à la fin
+      // de la piste cliquée.
       const merged = { ...resolvedRef.current, [track.id]: video };
-      const queue = tracks
-        .map((t) => {
-          const v = merged[t.id];
-          return v && v !== 'pending' ? toMusicTrack(v, t) : null;
-        })
-        .filter((t): t is MusicTrack => t !== null);
+      const queue = tracks.map((t) => {
+        const v = merged[t.id];
+        return v && v !== 'pending' ? toMusicTrack(v, t) : pendingMusicTrack(t);
+      });
 
       playTrack(toMusicTrack(video, track), queue);
     },
@@ -183,7 +185,12 @@ export default function AlbumScreen() {
           renderItem={({ item, index }) => {
             const video = resolved[item.id];
             const activeVideo = video && video !== 'pending' ? video : null;
-            const isActive = !!currentTrack && !!activeVideo && activeVideo.id === currentTrack.id;
+            // Le second test couvre la piste courante encore différée (le
+            // lecteur n'a pas fini de la résoudre côté YouTube).
+            const isActive =
+              !!currentTrack &&
+              ((!!activeVideo && activeVideo.id === currentTrack.id) ||
+                currentTrack.id === pendingTrackId(item));
             return (
               <ArtistTrackRow
                 rank={index + 1}

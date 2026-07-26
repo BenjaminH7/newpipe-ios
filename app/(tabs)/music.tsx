@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -8,6 +8,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
+import { useUnseenReleasesCount } from '@/hooks/useReleasesFeed';
 import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
 
@@ -21,6 +22,7 @@ export default function MusicScreen() {
   const retryDownload = useRetryMusicDownload();
   const { contentBottomPadding } = useBottomOffsets();
   const [query, setQuery] = useState('');
+  const unseenReleases = useUnseenReleasesCount();
 
   const openArtist = (artist: string) => {
     router.push({ pathname: '/music/artist', params: { artist } });
@@ -42,14 +44,31 @@ export default function MusicScreen() {
           tracks.length > 0 ? `${tracks.length} titre${tracks.length > 1 ? 's' : ''}` : undefined
         }
         right={
-          <Pressable
-            onPress={() => router.push('/history')}
-            hitSlop={8}
-            accessibilityLabel="Historique"
-            style={({ pressed }) => pressed && { opacity: 0.7 }}
-          >
-            <Ionicons name="time-outline" size={26} color={colors.text} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/music/releases')}
+              hitSlop={8}
+              accessibilityLabel="Nouveautés"
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
+            >
+              <Ionicons name="notifications-outline" size={26} color={colors.text} />
+              {unseenReleases > 0 && (
+                <View style={styles.releasesBadge}>
+                  <Text style={styles.releasesBadgeText}>
+                    {unseenReleases > 9 ? '9+' : unseenReleases}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/history')}
+              hitSlop={8}
+              accessibilityLabel="Historique"
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
+            >
+              <Ionicons name="time-outline" size={26} color={colors.text} />
+            </Pressable>
+          </View>
         }
       />
 
@@ -107,6 +126,29 @@ function createStyles(colors: ColorPalette) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 18,
+    },
+    // Pastille de compteur sur la cloche : nombre de sorties pas encore vues.
+    releasesBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    releasesBadgeText: {
+      color: colors.accentText,
+      fontSize: 10,
+      fontWeight: '800',
     },
     searchBar: {
       paddingHorizontal: 20,

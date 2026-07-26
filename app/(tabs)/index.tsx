@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { searchArtists, type DeezerArtist } from '@/api/deezer';
 import { searchVideos, searchVideosNextPage } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
@@ -42,6 +42,10 @@ export default function SearchScreen() {
   const [nextpage, setNextpage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const activeQuery = useRef('');
+  // Recherche pré-remplie par l'onglet Shazam ("artiste titre" d'un morceau
+  // reconnu) : le param arrive quand l'onglet Shazam bascule vers celui-ci.
+  // qNonce change à chaque envoi pour relancer la recherche même à q identique.
+  const { q, qNonce } = useLocalSearchParams<{ q?: string; qNonce?: string }>();
 
   const runSearch = useCallback(async (q: string) => {
     const trimmed = q.trim();
@@ -84,6 +88,13 @@ export default function SearchScreen() {
     }
   }, [nextpage, loadingMore, status]);
 
+  useEffect(() => {
+    if (typeof q === 'string' && q.trim()) {
+      setQuery(q);
+      runSearch(q);
+    }
+  }, [q, qNonce, runSearch]);
+
   // Navigation avec l'id Deezer : l'écran artiste charge alors directement le
   // bon profil, sans repasser par une recherche par nom ambiguë.
   const openArtistProfile = useCallback(
@@ -98,7 +109,19 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Rechercher" />
+      <ScreenHeader
+        title="Rechercher"
+        right={
+          <Pressable
+            onPress={() => router.push('/settings')}
+            hitSlop={8}
+            accessibilityLabel="Réglages"
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <Ionicons name="settings-outline" size={26} color={colors.text} />
+          </Pressable>
+        }
+      />
 
       <View style={styles.searchBar}>
         <View style={styles.searchField}>
