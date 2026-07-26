@@ -75,20 +75,20 @@ function createStyles(colors: ColorPalette) {
       gap: 10,
       paddingHorizontal: 8,
       paddingVertical: 8,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.18,
-      shadowRadius: 10,
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
       elevation: 6,
     },
     pressed: {
       opacity: 0.9,
     },
     cover: {
-      width: 40,
-      height: 40,
+      width: 42,
+      height: 42,
     },
     info: {
       flex: 1,
@@ -96,7 +96,7 @@ function createStyles(colors: ColorPalette) {
     },
     title: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     button: {
       width: 32,
@@ -114,9 +114,11 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.border,
       overflow: 'hidden',
     },
+    // Liseré de progression dans la couleur du texte (blanc en sombre),
+    // comme le mini-player de Spotify — l'accent est réservé aux actions.
     progressFill: {
       height: '100%',
-      backgroundColor: colors.accent,
+      backgroundColor: colors.text,
     },
   });
 }

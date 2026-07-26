@@ -57,9 +57,9 @@ function createStyles(colors: ColorPalette) {
       backgroundColor: colors.surface,
     },
     title: {
-      fontSize: 13,
-      fontWeight: '600',
-      marginTop: 6,
+      fontSize: 14,
+      fontWeight: '700',
+      marginTop: 8,
     },
   });
 }

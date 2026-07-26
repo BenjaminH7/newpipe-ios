@@ -218,6 +218,7 @@ function createStyles(colors: ColorPalette) {
     },
     channelChipName: {
       fontSize: 11,
+      fontWeight: '600',
       color: colors.muted,
       textAlign: 'center',
     },

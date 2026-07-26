@@ -3,6 +3,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getAlbum, type DeezerAlbumDetails, type DeezerTrack } from '@/api/deezer';
 import { toMusicTrack } from '@/api/musicMatch';
@@ -31,7 +32,7 @@ export default function AlbumScreen() {
   const { albumId, title: titleParam, coverUrl: coverUrlParam } = useLocalSearchParams<SearchParams>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, sharedStyles } = useTheme();
+  const { colors, sharedStyles, scheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { currentTrack, isPlaying, playTrack } = usePlayer();
   const { contentBottomPadding } = useBottomOffsets();
@@ -112,7 +113,7 @@ export default function AlbumScreen() {
         onPress={() => router.back()}
         style={[styles.backButton, { top: insets.top + 8 }]}
       >
-        <Ionicons name="chevron-back" size={24} color={colors.text} />
+        <Ionicons name="chevron-back" size={24} color="#ffffff" />
       </Pressable>
 
       {status === 'loading' && <LoadingView label="Chargement de l'album..." />}
@@ -125,6 +126,27 @@ export default function AlbumScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.header}>
+              {/* Décor façon Spotify : la pochette très floutée fond en dégradé
+                  vers la couleur de l'écran — même recette que le lecteur,
+                  pas d'extraction de couleur dominante nécessaire. */}
+              {coverUrl ? (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <Image
+                    source={{ uri: coverUrl }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    blurRadius={60}
+                  />
+                  <LinearGradient
+                    colors={[
+                      scheme === 'dark' ? 'rgba(18,18,18,0.35)' : 'rgba(255,255,255,0.35)',
+                      colors.background,
+                    ]}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </View>
+              ) : null}
+
               {coverUrl ? (
                 <Image source={{ uri: coverUrl }} style={styles.cover} contentFit="cover" />
               ) : (
@@ -136,13 +158,15 @@ export default function AlbumScreen() {
                 {title}
               </Text>
               {album?.artistName ? (
-                <Pressable hitSlop={8} onPress={openArtist}>
-                  <Text style={[styles.artistLink, { color: colors.accent }]} numberOfLines={1}>
+                <Pressable hitSlop={8} onPress={openArtist} style={styles.artistPressable}>
+                  <Text style={[sharedStyles.text, styles.artistLink]} numberOfLines={1}>
                     {album.artistName}
                   </Text>
                 </Pressable>
               ) : null}
-              {metaLine ? <Text style={sharedStyles.mutedText}>{metaLine}</Text> : null}
+              {metaLine ? (
+                <Text style={[sharedStyles.mutedText, styles.metaLine]}>{metaLine}</Text>
+              ) : null}
 
               <View style={styles.actionsRow}>
                 <Pressable
@@ -194,37 +218,54 @@ function createStyles(colors: ColorPalette) {
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.surface,
+      backgroundColor: 'rgba(0,0,0,0.4)',
     },
+    // Header façon Spotify : pochette centrée avec ombre portée, puis titre,
+    // artiste et méta alignés à gauche, bouton play ancré à droite.
     header: {
-      alignItems: 'center',
-      paddingTop: 64,
-      paddingHorizontal: 24,
-      paddingBottom: 8,
+      paddingTop: 72,
+      paddingHorizontal: 20,
+      paddingBottom: 4,
+      overflow: 'hidden',
     },
     cover: {
-      width: 200,
-      height: 200,
+      width: 230,
+      height: 230,
       borderRadius: 8,
+      alignSelf: 'center',
       backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 10,
     },
     coverPlaceholder: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     title: {
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: '800',
-      textAlign: 'center',
-      marginTop: 16,
+      letterSpacing: -0.5,
+      marginTop: 20,
+    },
+    artistPressable: {
+      alignSelf: 'flex-start',
     },
     artistLink: {
       fontSize: 15,
-      fontWeight: '600',
-      marginTop: 6,
+      fontWeight: '700',
+      marginTop: 8,
+    },
+    metaLine: {
+      marginTop: 4,
     },
     actionsRow: {
-      marginTop: 16,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      marginTop: 4,
     },
     playButton: {
       width: PLAY_BUTTON_SIZE,

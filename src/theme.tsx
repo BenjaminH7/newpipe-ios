@@ -8,6 +8,9 @@ import { useThemeMode } from '@/hooks/useSettings';
 export interface ColorPalette {
   background: string;
   surface: string;
+  // Surfaces posées au-dessus d'autres surfaces (mini-player flottant,
+  // feuilles) : un cran plus claires en sombre, blanches en clair.
+  surfaceElevated: string;
   text: string;
   muted: string;
   border: string;
@@ -17,20 +20,25 @@ export interface ColorPalette {
 
 export const lightColors: ColorPalette = {
   background: '#ffffff',
-  surface: '#f4f4f5',
-  text: '#18181b',
-  muted: '#71717a',
-  border: '#e4e4e7',
+  surface: '#f3f3f4',
+  surfaceElevated: '#ffffff',
+  text: '#121212',
+  muted: '#64646c',
+  border: '#e7e7ea',
   accent: '#ef4444',
   accentText: '#ffffff',
 };
 
+// Valeurs calées sur la palette sombre de Spotify : fond #121212 (jamais de
+// noir pur, les ombres restent lisibles), surfaces #1e1e1e, texte secondaire
+// #b3b3b3.
 export const darkColors: ColorPalette = {
-  background: '#09090b',
-  surface: '#18181b',
-  text: '#fafafa',
-  muted: '#a1a1aa',
-  border: '#27272a',
+  background: '#121212',
+  surface: '#1e1e1e',
+  surfaceElevated: '#2a2a2a',
+  text: '#ffffff',
+  muted: '#b3b3b3',
+  border: '#2e2e2e',
   accent: '#ef4444',
   accentText: '#ffffff',
 };
@@ -59,17 +67,25 @@ function createSharedStyles(colors: ColorPalette) {
     button: {
       backgroundColor: colors.accent,
       borderRadius: 999,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
     },
     buttonText: {
       color: colors.accentText,
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: '700',
+      letterSpacing: 0.2,
     },
     card: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
+      borderRadius: 16,
+    },
+    // Titre de section façon Spotify : gras, serré, même taille partout.
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '800',
+      letterSpacing: -0.4,
     },
     avatar: {
       backgroundColor: colors.surface,
@@ -83,7 +99,7 @@ function createSharedStyles(colors: ColorPalette) {
     // serré que les miniatures 16:9, comme sur Spotify.
     coverSmall: {
       backgroundColor: colors.surface,
-      borderRadius: 6,
+      borderRadius: 4,
     },
   });
 }

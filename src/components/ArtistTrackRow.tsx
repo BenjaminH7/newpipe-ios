@@ -61,17 +61,19 @@ function createStyles(colors: ColorPalette) {
       opacity: 0.6,
     },
     rankBox: {
-      width: 22,
+      width: 24,
       alignItems: 'center',
     },
     cover: {
       width: 44,
       height: 44,
     },
+    // Titre en graisse moyenne, comme les listes de titres Spotify — le gras
+    // est réservé aux titres de section et aux noms.
     title: {
       flex: 1,
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '500',
     },
   });
 }

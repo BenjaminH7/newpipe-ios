@@ -31,7 +31,7 @@ type Status = 'idle' | 'loading' | 'error' | 'ready';
 
 export default function SearchScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, sharedStyles } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { contentBottomPadding } = useBottomOffsets();
   const [query, setQuery] = useState('');
@@ -103,7 +103,7 @@ export default function SearchScreen() {
       <View style={styles.searchBar}>
         <View style={styles.searchField}>
           <Pressable onPress={() => runSearch(query)} hitSlop={8}>
-            <Ionicons name="search" size={18} color={colors.muted} />
+            <Ionicons name="search" size={20} color={colors.muted} />
           </Pressable>
           <TextInput
             value={query}
@@ -140,7 +140,7 @@ export default function SearchScreen() {
           ListHeaderComponent={
             artists.length > 0 ? (
               <View style={styles.artistsSection}>
-                <Text style={styles.sectionLabel}>Artistes</Text>
+                <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Artistes</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -152,7 +152,9 @@ export default function SearchScreen() {
                     </View>
                   ))}
                 </ScrollView>
-                {results.length > 0 && <Text style={styles.sectionLabel}>Vidéos</Text>}
+                {results.length > 0 && (
+                  <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Vidéos</Text>
+                )}
               </View>
             ) : null
           }
@@ -199,19 +201,22 @@ function createStyles(colors: ColorPalette) {
       paddingTop: 8,
       paddingBottom: 12,
     },
+    // Champ de recherche façon Spotify : rectangle arrondi (pas de pilule),
+    // un peu plus haut, texte plus affirmé.
     searchField: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 10,
       backgroundColor: colors.surface,
-      borderRadius: 999,
-      paddingHorizontal: 14,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
     searchInput: {
       flex: 1,
       color: colors.text,
-      fontSize: 15,
-      paddingVertical: 10,
+      fontSize: 16,
+      fontWeight: '500',
+      paddingVertical: 12,
     },
     list: {
       paddingHorizontal: 20,
@@ -221,17 +226,14 @@ function createStyles(colors: ColorPalette) {
       marginBottom: 4,
     },
     sectionLabel: {
-      color: colors.text,
-      fontSize: 17,
-      fontWeight: '800',
-      marginTop: 4,
-      marginBottom: 10,
+      marginTop: 8,
+      marginBottom: 12,
     },
     artistsList: {
-      paddingBottom: 8,
+      paddingBottom: 12,
     },
     artistCardWrap: {
-      marginRight: 12,
+      marginRight: 16,
     },
   });
 }

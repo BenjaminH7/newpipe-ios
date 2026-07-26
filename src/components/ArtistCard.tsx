@@ -53,9 +53,9 @@ function createStyles(colors: ColorPalette) {
       justifyContent: 'center',
     },
     name: {
-      fontSize: 13,
-      fontWeight: '600',
-      marginTop: 8,
+      fontSize: 14,
+      fontWeight: '700',
+      marginTop: 10,
       textAlign: 'center',
     },
   });

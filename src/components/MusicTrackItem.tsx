@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   subRow: {
     flexDirection: 'row',

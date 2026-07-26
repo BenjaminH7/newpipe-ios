@@ -19,7 +19,7 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   const { colors, sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
-      <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+      <Ionicons name="cloud-offline-outline" size={44} color={colors.muted} />
       <Text style={[sharedStyles.text, styles.message]}>{message}</Text>
       {onRetry ? (
         <Pressable
@@ -48,7 +48,7 @@ export function EmptyView({
   const { colors, sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
-      {icon ? <Ionicons name={icon} size={40} color={colors.muted} /> : null}
+      {icon ? <Ionicons name={icon} size={44} color={colors.muted} /> : null}
       {title ? <Text style={[sharedStyles.text, styles.title]}>{title}</Text> : null}
       <Text style={[sharedStyles.mutedText, styles.message]}>{message}</Text>
     </View>
@@ -64,10 +64,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   message: {
     textAlign: 'center',

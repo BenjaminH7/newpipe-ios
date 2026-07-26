@@ -42,8 +42,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
+    letterSpacing: -0.8,
   },
   right: {
     marginLeft: 12,

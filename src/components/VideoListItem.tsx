@@ -104,10 +104,10 @@ function createStyles(colors: ColorPalette) {
       position: 'absolute',
       bottom: 8,
       right: 8,
-      backgroundColor: 'rgba(0,0,0,0.75)',
+      backgroundColor: 'rgba(0,0,0,0.8)',
       paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 6,
+      paddingVertical: 3,
+      borderRadius: 4,
     },
     progressTrack: {
       position: 'absolute',
@@ -145,8 +145,10 @@ function createStyles(colors: ColorPalette) {
     },
     durationText: {
       color: '#ffffff',
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+      fontVariant: ['tabular-nums'],
     },
     info: {
       marginTop: 10,
@@ -154,7 +156,7 @@ function createStyles(colors: ColorPalette) {
     },
     title: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '700',
       lineHeight: 20,
       marginBottom: 2,
     },

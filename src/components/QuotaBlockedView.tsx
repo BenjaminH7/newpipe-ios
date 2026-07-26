@@ -14,7 +14,7 @@ export function QuotaBlockedView({ message }: { message: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#121212',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -23,7 +23,8 @@ const styles = StyleSheet.create({
   title: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   message: {
     color: 'rgba(255,255,255,0.6)',

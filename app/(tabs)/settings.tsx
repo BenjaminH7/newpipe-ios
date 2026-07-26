@@ -272,20 +272,22 @@ function createStyles(colors: ColorPalette) {
       paddingHorizontal: 20,
       paddingTop: 4,
     },
+    // Micro-label de section façon Spotify : petites capitales espacées.
     sectionTitle: {
       color: colors.muted,
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: '700',
       textTransform: 'uppercase',
+      letterSpacing: 0.8,
       marginBottom: 8,
-      marginTop: 16,
+      marginTop: 20,
     },
     section: {
-      padding: 4,
+      paddingVertical: 4,
     },
     themeBlock: {
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       gap: 2,
     },
     segmentedControl: {
@@ -310,8 +312,8 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
     },
     rowText: {
       flex: 1,
@@ -324,7 +326,7 @@ function createStyles(colors: ColorPalette) {
     separator: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border,
-      marginHorizontal: 12,
+      marginLeft: 16,
     },
     minutesInput: {
       backgroundColor: colors.background,

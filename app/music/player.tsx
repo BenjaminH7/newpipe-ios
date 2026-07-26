@@ -503,17 +503,26 @@ export default function MusicPlayerScreen() {
             <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : 'rgba(255,255,255,0.7)'} />
           </Pressable>
           <Pressable hitSlop={12} onPress={playPrevious}>
-            <Ionicons name="play-skip-back" size={30} color="#ffffff" />
+            <Ionicons name="play-skip-back" size={32} color="#ffffff" />
           </Pressable>
-          <Pressable hitSlop={12} onPress={togglePlay} style={styles.playButton}>
+          <Pressable
+            hitSlop={12}
+            onPress={togglePlay}
+            style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+          >
             {isBuffering ? (
-              <ActivityIndicator color={colors.accentText} />
+              <ActivityIndicator color="#121212" />
             ) : (
-              <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color={colors.accentText} />
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={32}
+                color="#121212"
+                style={!isPlaying && styles.playIconNudge}
+              />
             )}
           </Pressable>
           <Pressable hitSlop={12} onPress={playNext}>
-            <Ionicons name="play-skip-forward" size={30} color="#ffffff" />
+            <Ionicons name="play-skip-forward" size={32} color="#ffffff" />
           </Pressable>
           <Pressable hitSlop={12} onPress={cycleRepeat} style={styles.repeatButton}>
             <Ionicons name="repeat" size={22} color={repeat === 'off' ? 'rgba(255,255,255,0.7)' : colors.accent} />
@@ -579,14 +588,14 @@ function createStyles(colors: ColorPalette) {
     cover: {
       width: '100%',
       aspectRatio: 1,
-      borderRadius: 16,
+      borderRadius: 8,
       alignSelf: 'center',
       backgroundColor: 'rgba(255,255,255,0.08)',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35,
-      shadowRadius: 16,
-      elevation: 8,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.4,
+      shadowRadius: 20,
+      elevation: 10,
     },
     lyricsPane: {
       flex: 1,
@@ -653,14 +662,15 @@ function createStyles(colors: ColorPalette) {
     },
     title: {
       color: '#ffffff',
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: '800',
-      lineHeight: 28,
+      lineHeight: 30,
+      letterSpacing: -0.5,
     },
     artistLink: {
-      color: 'rgba(255,255,255,0.75)',
-      fontSize: 13,
-      fontWeight: '600',
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 15,
+      fontWeight: '500',
     },
     favoriteButton: {
       width: 26,
@@ -705,8 +715,10 @@ function createStyles(colors: ColorPalette) {
       marginTop: 6,
     },
     timeText: {
-      color: 'rgba(255,255,255,0.7)',
-      fontSize: 13,
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: 12,
+      fontWeight: '500',
+      fontVariant: ['tabular-nums'],
     },
     controlsRow: {
       flexDirection: 'row',
@@ -714,11 +726,13 @@ function createStyles(colors: ColorPalette) {
       justifyContent: 'space-between',
       marginTop: 36,
     },
+    // Bouton play blanc à icône noire, la signature du lecteur Spotify —
+    // le fond est toujours sombre ici (pochette floutée + dégradé noir).
     playButton: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: colors.accent,
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      backgroundColor: '#ffffff',
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: '#000',
@@ -726,6 +740,13 @@ function createStyles(colors: ColorPalette) {
       shadowOpacity: 0.3,
       shadowRadius: 8,
       elevation: 6,
+    },
+    playButtonPressed: {
+      transform: [{ scale: 0.96 }],
+      opacity: 0.9,
+    },
+    playIconNudge: {
+      marginLeft: 3,
     },
     repeatButton: {
       width: 22,

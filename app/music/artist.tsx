@@ -187,7 +187,7 @@ export default function ArtistScreen() {
 
               {albums.length > 0 && (
                 <>
-                  <Text style={[sharedStyles.text, styles.sectionLabel]}>Discographie</Text>
+                  <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Discographie</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -202,7 +202,7 @@ export default function ArtistScreen() {
                 </>
               )}
 
-              <Text style={[sharedStyles.text, styles.sectionLabel]}>Titres populaires</Text>
+              <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Titres populaires</Text>
             </View>
           }
           renderItem={({ item, index }) => {
@@ -282,18 +282,19 @@ function createStyles(colors: ColorPalette) {
       bottom: 20,
     },
     heroKicker: {
-      color: 'rgba(255,255,255,0.85)',
-      fontSize: 13,
+      color: 'rgba(255,255,255,0.8)',
+      fontSize: 12,
       fontWeight: '700',
       textTransform: 'uppercase',
-      letterSpacing: 1,
+      letterSpacing: 1.2,
       marginBottom: 6,
     },
     heroName: {
       color: '#ffffff',
-      fontSize: 36,
-      fontWeight: '800',
-      lineHeight: 40,
+      fontSize: 42,
+      fontWeight: '900',
+      lineHeight: 46,
+      letterSpacing: -1.2,
       textShadowColor: 'rgba(0,0,0,0.4)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
@@ -304,10 +305,13 @@ function createStyles(colors: ColorPalette) {
       fontWeight: '600',
       marginTop: 6,
     },
+    // Shuffle et play regroupés à droite, comme sur les pages artiste de
+    // Spotify — le bouton play chevauche le bas du hero.
     actionsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
+      gap: 16,
       paddingHorizontal: 20,
       marginTop: -(PLAY_BUTTON_SIZE / 2),
       marginBottom: 8,
@@ -338,17 +342,15 @@ function createStyles(colors: ColorPalette) {
       marginLeft: 3,
     },
     sectionLabel: {
-      fontSize: 20,
-      fontWeight: '800',
       paddingHorizontal: 20,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingTop: 16,
+      paddingBottom: 12,
     },
     albumsList: {
       paddingHorizontal: 20,
     },
     albumCardWrap: {
-      marginRight: 12,
+      marginRight: 16,
     },
   });
 }

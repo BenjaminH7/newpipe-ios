@@ -26,7 +26,7 @@ function RootLayoutContent() {
             headerStyle: { backgroundColor: colors.background },
             headerShadowVisible: false,
             headerTintColor: colors.text,
-            headerTitleStyle: { color: colors.text, fontWeight: '600' },
+            headerTitleStyle: { color: colors.text, fontWeight: '700' },
             contentStyle: { backgroundColor: colors.background },
           }}
         >

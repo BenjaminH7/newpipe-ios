@@ -370,9 +370,10 @@ function createStyles(colors: ColorPalette) {
       gap: 12,
     },
     title: {
-      fontSize: 17,
+      fontSize: 18,
       fontWeight: '700',
-      lineHeight: 23,
+      letterSpacing: -0.3,
+      lineHeight: 24,
     },
     titleText: {
       flex: 1,
@@ -430,19 +431,21 @@ function createStyles(colors: ColorPalette) {
       fontSize: 15,
       fontWeight: '600',
     },
+    // Pilule "S'abonner" à contraste inversé (fond = couleur du texte),
+    // façon YouTube/Spotify moderne ; une fois abonné, elle passe en surface.
     subscribeButton: {
-      backgroundColor: colors.accent,
-      borderRadius: 18,
-      paddingHorizontal: 14,
+      backgroundColor: colors.text,
+      borderRadius: 999,
+      paddingHorizontal: 16,
       paddingVertical: 8,
     },
     subscribeButtonActive: {
       backgroundColor: colors.surface,
     },
     subscribeButtonText: {
-      color: colors.accentText,
+      color: colors.background,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     subscribeButtonTextActive: {
       color: colors.text,
@@ -450,7 +453,7 @@ function createStyles(colors: ColorPalette) {
     descriptionBox: {
       marginHorizontal: 20,
       marginTop: 18,
-      padding: 14,
+      padding: 16,
     },
     descriptionText: {
       fontSize: 13,
