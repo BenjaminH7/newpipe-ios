@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "youtubeclient",
+    "name": ".mp3",
     "slug": "youtubeclient",
     "version": "1.0.0",
     "scheme": "youtubeclient",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,

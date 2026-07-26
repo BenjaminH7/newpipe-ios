@@ -113,7 +113,8 @@ export default function MusicPlayerScreen() {
 
   // Traduction en français des paroles, chargée une fois qu'elles sont
   // disponibles (synchronisées ligne par ligne, ou en bloc pour le texte brut).
-  // Contrôlée uniquement par le réglage "Traduire les paroles" des réglages.
+  // Contrôlée par le réglage "Traduire les paroles" ; l'API renvoie `null`
+  // pour des paroles déjà en français, donc rien ne s'affiche dans ce cas.
   useEffect(() => {
     if (!lyrics || !translateLyrics) return;
     let cancelled = false;

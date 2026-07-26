@@ -267,7 +267,7 @@ export default function SettingsScreen() {
         <View style={styles.separator} />
         <SettingRow
           title="Traduire les paroles"
-          description="Affiche une traduction en français sous les paroles synchronisées du lecteur musique."
+          description="Affiche une traduction en français sous les paroles du lecteur musique, sauf si elles sont déjà en français."
           value={translateLyrics}
           onValueChange={setTranslateLyrics}
           colors={colors}
