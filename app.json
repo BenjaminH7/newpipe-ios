@@ -35,13 +35,7 @@
           "supportsBackgroundPlayback": true
         }
       ],
-      "expo-font",
-      [
-        "expo-shazamkit",
-        {
-          "microphonePermission": "L'app utilise le micro pour reconnaître la musique qui joue autour de toi (onglet Shazam)."
-        }
-      ]
+      "expo-font"
     ],
     "extra": {
       "router": {},

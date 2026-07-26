@@ -89,15 +89,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="shazam"
-        options={{
-          title: 'Shazam',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'radio' : 'radio-outline'} size={size} color={color} />
-          ),
-        }}
-      />
     </Tabs>
   );
 }
