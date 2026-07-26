@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 
 /**
  * Barre "en cours de lecture" façon Spotify : rendue en dernier enfant de
@@ -14,6 +15,8 @@ import { colors, sharedStyles } from '@/theme';
  */
 export function MiniPlayer() {
   const router = useRouter();
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { currentTrack, isPlaying, isBuffering, togglePlay, playNext } = usePlayer();
   const musicQuotaExceeded = useMusicQuotaExceeded();
 
@@ -49,33 +52,35 @@ export function MiniPlayer() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  cover: {
-    width: 40,
-    height: 40,
-  },
-  info: {
-    flex: 1,
-    gap: 1,
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  button: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      backgroundColor: colors.surface,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    cover: {
+      width: 40,
+      height: 40,
+    },
+    info: {
+      flex: 1,
+      gap: 1,
+    },
+    title: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    button: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+}

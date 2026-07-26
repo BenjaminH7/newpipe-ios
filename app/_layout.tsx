@@ -3,12 +3,22 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { JsEngineView } from '@/api/innertube/JsEngineView';
 import { PlayerProvider } from '@/player/PlayerContext';
-import { colors } from '@/theme';
+import { ThemeProvider, useTheme } from '@/theme';
 
 export default function RootLayout() {
   return (
+    <ThemeProvider>
+      <RootLayoutContent />
+    </ThemeProvider>
+  );
+}
+
+function RootLayoutContent() {
+  const { colors, scheme } = useTheme();
+
+  return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style="dark" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <JsEngineView />
       <PlayerProvider>
         <Stack

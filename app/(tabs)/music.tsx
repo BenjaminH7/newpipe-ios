@@ -5,9 +5,11 @@ import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { EmptyView } from '@/components/StatusView';
 import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
 import { usePlayer } from '@/player/PlayerContext';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 
 export default function MusicScreen() {
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const tracks = useMusicLibrary();
   const { playTrack } = usePlayer();
   const removeTrack = useRemoveMusicTrack();
@@ -62,22 +64,24 @@ export default function MusicScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  searchBar: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  input: {
-    fontSize: 15,
-  },
-  list: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    searchBar: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    input: {
+      fontSize: 15,
+    },
+    list: {
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+  });
+}

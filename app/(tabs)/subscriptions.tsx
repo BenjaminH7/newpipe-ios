@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -9,7 +9,7 @@ import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useSubscriptions, useToggleChannelSubscription } from '@/hooks/useSubscriptions';
 import type { SubscribedChannel } from '@/storage/subscriptions';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 
 // Mélange les nouveautés de chaque chaîne au lieu de les concaténer : sans date
 // exacte comparable entre chaînes (YouTube ne fournit que du texte relatif), un
@@ -30,6 +30,8 @@ type Status = 'loading' | 'error' | 'ready';
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const channels = useSubscriptions();
   const toggleSubscription = useToggleChannelSubscription();
   const [status, setStatus] = useState<Status>('loading');
@@ -150,53 +152,55 @@ export default function SubscriptionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  channelsRow: {
-    gap: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  channelChip: {
-    width: 64,
-    alignItems: 'center',
-    gap: 6,
-  },
-  channelAvatarWrap: {
-    width: 56,
-    height: 56,
-  },
-  channelAvatar: {
-    width: 56,
-    height: 56,
-  },
-  unsubscribeBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: colors.muted,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.background,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  channelChipName: {
-    fontSize: 11,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  list: {
-    paddingHorizontal: 12,
-    paddingTop: 4,
-    paddingBottom: 24,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    channelsRow: {
+      gap: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+    },
+    channelChip: {
+      width: 64,
+      alignItems: 'center',
+      gap: 6,
+    },
+    channelAvatarWrap: {
+      width: 56,
+      height: 56,
+    },
+    channelAvatar: {
+      width: 56,
+      height: 56,
+    },
+    unsubscribeBadge: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      backgroundColor: colors.muted,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    channelChipName: {
+      fontSize: 11,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    list: {
+      paddingHorizontal: 12,
+      paddingTop: 4,
+      paddingBottom: 24,
+    },
+  });
+}

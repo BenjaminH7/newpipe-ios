@@ -19,7 +19,7 @@ import { QuotaBlockedView } from '@/components/QuotaBlockedView';
 import { useMusicQuotaMinutes } from '@/hooks/useSettings';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 import { formatDuration } from '@/utils/format';
 
 const SLEEP_TIMER_PRESETS_MINUTES = [5, 15, 30, 45, 60];
@@ -27,6 +27,8 @@ const SLEEP_TIMER_PRESETS_MINUTES = [5, 15, 30, 45, 60];
 export default function MusicPlayerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     currentTrack,
     isPlaying,
@@ -234,125 +236,127 @@ export default function MusicPlayerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 24,
-  },
-  empty: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  closeButton: {
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  topRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-  },
-  sleepTimerLabel: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  cover: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 16,
-    alignSelf: 'center',
-  },
-  lyricsPane: {
-    flex: 1,
-  },
-  lyricsLoading: {
-    marginTop: 24,
-  },
-  lyricsEmpty: {
-    marginTop: 24,
-    textAlign: 'center',
-  },
-  lyricsListContent: {
-    paddingVertical: 12,
-  },
-  lyricsLine: {
-    color: colors.muted,
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 26,
-    marginBottom: 14,
-  },
-  lyricsLineActive: {
-    color: colors.text,
-  },
-  lyricsPlainText: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 24,
-  },
-  meta: {
-    marginTop: 28,
-    gap: 4,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.surface,
-    marginTop: 28,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 36,
-  },
-  playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  repeatButton: {
-    width: 22,
-    height: 22,
-  },
-  repeatOneBadge: {
-    position: 'absolute',
-    bottom: -6,
-    right: -8,
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.accent,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingHorizontal: 24,
+    },
+    empty: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      paddingHorizontal: 24,
+    },
+    closeButton: {
+      alignSelf: 'center',
+      marginBottom: 12,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    topRowRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 20,
+    },
+    sleepTimerLabel: {
+      color: colors.accent,
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    cover: {
+      width: '100%',
+      aspectRatio: 1,
+      borderRadius: 16,
+      alignSelf: 'center',
+    },
+    lyricsPane: {
+      flex: 1,
+    },
+    lyricsLoading: {
+      marginTop: 24,
+    },
+    lyricsEmpty: {
+      marginTop: 24,
+      textAlign: 'center',
+    },
+    lyricsListContent: {
+      paddingVertical: 12,
+    },
+    lyricsLine: {
+      color: colors.muted,
+      fontSize: 17,
+      fontWeight: '600',
+      lineHeight: 26,
+      marginBottom: 14,
+    },
+    lyricsLineActive: {
+      color: colors.text,
+    },
+    lyricsPlainText: {
+      color: colors.text,
+      fontSize: 15,
+      lineHeight: 24,
+    },
+    meta: {
+      marginTop: 28,
+      gap: 4,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      lineHeight: 26,
+    },
+    progressTrack: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.surface,
+      marginTop: 28,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: colors.accent,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 6,
+    },
+    controlsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 36,
+    },
+    playButton: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    repeatButton: {
+      width: 22,
+      height: 22,
+    },
+    repeatOneBadge: {
+      position: 'absolute',
+      bottom: -6,
+      right: -8,
+      fontSize: 9,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+  });
+}

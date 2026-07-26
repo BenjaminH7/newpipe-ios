@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MusicTrack } from '@/storage/musicLibrary';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme } from '@/theme';
 import { formatDuration } from '@/utils/format';
 
 export function MusicTrackItem({
@@ -16,6 +16,7 @@ export function MusicTrackItem({
   onRemove: () => void;
   onRetryDownload: () => void;
 }) {
+  const { colors, sharedStyles } = useTheme();
   return (
     <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]} onPress={onPress}>
       <Image source={{ uri: track.coverArtUrl }} style={[styles.cover, sharedStyles.thumbnail]} contentFit="cover" />

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/theme';
 
 export function QuotaBlockedView({ message }: { message: string }) {
   return (
@@ -27,7 +26,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   message: {
-    color: colors.muted,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,

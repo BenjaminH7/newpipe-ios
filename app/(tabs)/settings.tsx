@@ -1,26 +1,37 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import {
   useMusicQuotaMinutes,
   useSkipProductPlacements,
   useTextOnlyMode,
+  useThemeMode,
   useVideoQuotaMinutes,
 } from '@/hooks/useSettings';
-import { colors, sharedStyles } from '@/theme';
+import type { ThemeMode } from '@/storage/settings';
+import { useTheme, type ColorPalette } from '@/theme';
 
 const MIN_QUOTA_MINUTES = 1;
 const MAX_QUOTA_MINUTES = 600;
+
+type SharedStyles = ReturnType<typeof useTheme>['sharedStyles'];
+type Styles = ReturnType<typeof createStyles>;
 
 function SettingRow({
   title,
   description,
   value,
   onValueChange,
+  colors,
+  sharedStyles,
+  styles,
 }: {
   title: string;
   description: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  colors: ColorPalette;
+  sharedStyles: SharedStyles;
+  styles: Styles;
 }) {
   return (
     <View style={styles.row}>
@@ -46,11 +57,15 @@ function QuotaMinutesRow({
   description,
   value,
   onValueChange,
+  sharedStyles,
+  styles,
 }: {
   title: string;
   description: string;
   value: number;
   onValueChange: (value: number) => void;
+  sharedStyles: SharedStyles;
+  styles: Styles;
 }) {
   const [text, setText] = useState(String(value));
 
@@ -88,14 +103,63 @@ function QuotaMinutesRow({
   );
 }
 
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'Système' },
+  { value: 'light', label: 'Clair' },
+  { value: 'dark', label: 'Sombre' },
+];
+
+function ThemeModeSelector({
+  mode,
+  onChange,
+  colors,
+  styles,
+}: {
+  mode: ThemeMode;
+  onChange: (value: ThemeMode) => void;
+  colors: ColorPalette;
+  styles: Styles;
+}) {
+  return (
+    <View style={styles.segmentedControl}>
+      {THEME_OPTIONS.map((option) => {
+        const active = option.value === mode;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.segment, active && { backgroundColor: colors.accent }]}
+          >
+            <Text style={[styles.segmentText, { color: active ? colors.accentText : colors.text }]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [textOnlyMode, setTextOnlyMode] = useTextOnlyMode();
   const [skipProductPlacements, setSkipProductPlacements] = useSkipProductPlacements();
+  const [themeMode, setThemeMode] = useThemeMode();
   const [videoQuotaMinutes, setVideoQuotaMinutes] = useVideoQuotaMinutes();
   const [musicQuotaMinutes, setMusicQuotaMinutes] = useMusicQuotaMinutes();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.sectionTitle}>Apparence</Text>
+      <View style={[sharedStyles.card, styles.section, styles.themeSection]}>
+        <Text style={[sharedStyles.text, styles.rowTitle]}>Thème</Text>
+        <Text style={sharedStyles.mutedText}>
+          Choisis un thème clair ou sombre, ou suis le réglage de ton appareil.
+        </Text>
+        <ThemeModeSelector mode={themeMode} onChange={setThemeMode} colors={colors} styles={styles} />
+      </View>
+
       <Text style={styles.sectionTitle}>Recherche</Text>
       <View style={[sharedStyles.card, styles.section]}>
         <SettingRow
@@ -103,6 +167,9 @@ export default function SettingsScreen() {
           description="Cache les miniatures dans les résultats de recherche et les remplace par un carré gris avec la durée, pour éviter le putaclic."
           value={textOnlyMode}
           onValueChange={setTextOnlyMode}
+          colors={colors}
+          sharedStyles={sharedStyles}
+          styles={styles}
         />
       </View>
 
@@ -113,6 +180,8 @@ export default function SettingsScreen() {
           description="Au-delà de cette durée (ou de 3 vidéos), le lecteur vidéo se bloque jusqu'à minuit. Ne compte pas la musique."
           value={videoQuotaMinutes}
           onValueChange={setVideoQuotaMinutes}
+          sharedStyles={sharedStyles}
+          styles={styles}
         />
         <View style={styles.separator} />
         <QuotaMinutesRow
@@ -120,6 +189,8 @@ export default function SettingsScreen() {
           description="Au-delà de cette durée d'écoute, le lecteur musique se bloque jusqu'à minuit. Réglage indépendant de la vidéo."
           value={musicQuotaMinutes}
           onValueChange={setMusicQuotaMinutes}
+          sharedStyles={sharedStyles}
+          styles={styles}
         />
       </View>
 
@@ -130,60 +201,87 @@ export default function SettingsScreen() {
           description="Saute automatiquement les segments de placement de produit détectés via SponsorBlock."
           value={skipProductPlacements}
           onValueChange={setSkipProductPlacements}
+          colors={colors}
+          sharedStyles={sharedStyles}
+          styles={styles}
         />
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  sectionTitle: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  section: {
-    padding: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  rowText: {
-    flex: 1,
-    gap: 2,
-  },
-  rowTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginHorizontal: 12,
-  },
-  minutesInput: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    color: colors.text,
-    fontSize: 15,
-    minWidth: 48,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    sectionTitle: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      marginBottom: 8,
+      marginTop: 16,
+    },
+    section: {
+      padding: 4,
+    },
+    themeSection: {
+      padding: 14,
+      gap: 4,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: colors.background,
+      borderRadius: 10,
+      padding: 3,
+      marginTop: 10,
+      gap: 3,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    segmentText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    rowText: {
+      flex: 1,
+      gap: 2,
+    },
+    rowTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    separator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginHorizontal: 12,
+    },
+    minutesInput: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      color: colors.text,
+      fontSize: 15,
+      minWidth: 48,
+      textAlign: 'center',
+    },
+  });
+}

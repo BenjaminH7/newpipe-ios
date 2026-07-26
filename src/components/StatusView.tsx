@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme } from '@/theme';
 
 export function LoadingView({ label }: { label?: string }) {
+  const { colors, sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
       <ActivityIndicator size="large" color={colors.accent} />
@@ -11,6 +12,7 @@ export function LoadingView({ label }: { label?: string }) {
 }
 
 export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
       <Text style={[sharedStyles.text, styles.errorText]}>{message}</Text>
@@ -24,6 +26,7 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
 }
 
 export function EmptyView({ message }: { message: string }) {
+  const { sharedStyles } = useTheme();
   return (
     <View style={styles.center}>
       <Text style={sharedStyles.mutedText}>{message}</Text>

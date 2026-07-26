@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,7 @@ import type { VideoSummary } from '@/api/youtube';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 
 function dedupeById(items: VideoSummary[]): VideoSummary[] {
   const seen = new Set<string>();
@@ -25,6 +25,8 @@ type Status = 'idle' | 'loading' | 'error' | 'ready';
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -129,23 +131,25 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 12,
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-  },
-  list: {
-    paddingHorizontal: 12,
-    paddingBottom: 24,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      gap: 8,
+      padding: 12,
+      alignItems: 'center',
+    },
+    input: {
+      flex: 1,
+      fontSize: 15,
+    },
+    list: {
+      paddingHorizontal: 12,
+      paddingBottom: 24,
+    },
+  });
+}

@@ -1,13 +1,16 @@
+import { useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { VideoListItem } from '@/components/VideoListItem';
 import { EmptyView } from '@/components/StatusView';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { useSavedVideos } from '@/hooks/useSavedVideos';
-import { colors } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 
 export default function PlaylistsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const videos = useSavedVideos();
 
   return (
@@ -48,14 +51,16 @@ export default function PlaylistsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  list: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 24,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    list: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 24,
+    },
+  });
+}

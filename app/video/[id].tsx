@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -14,7 +14,7 @@ import { useSkipProductPlacements, useVideoQuotaMinutes } from '@/hooks/useSetti
 import { useVideoQuotaExceeded } from '@/hooks/useUsageQuota';
 import { addVideoWatchSeconds } from '@/storage/usageQuota';
 import { getVideoProgress, loadWatchProgress, saveWatchProgress } from '@/storage/watchProgress';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 import { formatDuration, formatFullCount, formatUploadDate, formatViews } from '@/utils/format';
 
 // Fréquence minimale entre deux écritures de la progression sur le disque :
@@ -36,6 +36,8 @@ type SearchParams = {
 type FetchState = 'loading' | 'error' | 'ready';
 
 export default function VideoDetailScreen() {
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<SearchParams>();
   const { id } = params;
   const [fetchState, setFetchState] = useState<FetchState>('loading');
@@ -316,137 +318,139 @@ export default function VideoDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingBottom: 32,
-  },
-  player: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-  },
-  playerFallback: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-  },
-  playerFallbackOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 16,
-  },
-  unavailableText: {
-    color: '#ffffff',
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 12,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '700',
-    lineHeight: 23,
-  },
-  titleText: {
-    flex: 1,
-  },
-  saveButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonActive: {
-    backgroundColor: colors.accent,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    marginTop: 6,
-  },
-  placementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    alignSelf: 'flex-start',
-  },
-  placementTextActive: {
-    color: colors.accent,
-  },
-  channelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    marginTop: 18,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-  },
-  channelText: {
-    flex: 1,
-  },
-  channelName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  subscribeButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  subscribeButtonActive: {
-    backgroundColor: colors.surface,
-  },
-  subscribeButtonText: {
-    color: colors.accentText,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  subscribeButtonTextActive: {
-    color: colors.text,
-  },
-  descriptionBox: {
-    marginHorizontal: 16,
-    marginTop: 18,
-    padding: 14,
-  },
-  descriptionText: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  descriptionToggle: {
-    marginTop: 8,
-  },
-  descriptionToggleText: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      paddingBottom: 32,
+    },
+    player: {
+      width: '100%',
+      aspectRatio: 16 / 9,
+      backgroundColor: '#000',
+    },
+    playerFallback: {
+      width: '100%',
+      aspectRatio: 16 / 9,
+      backgroundColor: '#000',
+    },
+    playerFallbackOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      padding: 16,
+    },
+    unavailableText: {
+      color: '#ffffff',
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingHorizontal: 16,
+      marginTop: 16,
+      gap: 12,
+    },
+    title: {
+      fontSize: 17,
+      fontWeight: '700',
+      lineHeight: 23,
+    },
+    titleText: {
+      flex: 1,
+    },
+    saveButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveButtonActive: {
+      backgroundColor: colors.accent,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 16,
+      marginTop: 6,
+    },
+    placementRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginHorizontal: 16,
+      marginTop: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10,
+      backgroundColor: colors.surface,
+      alignSelf: 'flex-start',
+    },
+    placementTextActive: {
+      color: colors.accent,
+    },
+    channelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+      marginTop: 18,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+    },
+    channelText: {
+      flex: 1,
+    },
+    channelName: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    subscribeButton: {
+      backgroundColor: colors.accent,
+      borderRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    subscribeButtonActive: {
+      backgroundColor: colors.surface,
+    },
+    subscribeButtonText: {
+      color: colors.accentText,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    subscribeButtonTextActive: {
+      color: colors.text,
+    },
+    descriptionBox: {
+      marginHorizontal: 16,
+      marginTop: 18,
+      padding: 14,
+    },
+    descriptionText: {
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    descriptionToggle: {
+      marginTop: 8,
+    },
+    descriptionToggleText: {
+      color: colors.accent,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+  });
+}

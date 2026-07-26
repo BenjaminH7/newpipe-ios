@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,10 +7,12 @@ import { useIsInMusicLibrary, useToggleMusicTrack } from '@/hooks/useMusicLibrar
 import { useIsVideoSaved, useToggleSavedVideo } from '@/hooks/useSavedVideos';
 import { useTextOnlyMode } from '@/hooks/useSettings';
 import { useWatchProgress } from '@/hooks/useWatchProgress';
-import { colors, sharedStyles } from '@/theme';
+import { useTheme, type ColorPalette } from '@/theme';
 import { formatDuration, formatViews } from '@/utils/format';
 
 export function VideoListItem({ video, onPress }: { video: VideoSummary; onPress: () => void }) {
+  const { colors, sharedStyles } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const saved = useIsVideoSaved(video.id);
   const toggleSaved = useToggleSavedVideo();
   const inMusic = useIsInMusicLibrary(video.id);
@@ -76,82 +79,84 @@ export function VideoListItem({ video, onPress }: { video: VideoSummary; onPress
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 22,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  thumbnailWrap: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbnailPlaceholder: {
-    backgroundColor: colors.surface,
-  },
-  durationBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  progressTrack: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-  },
-  saveBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  musicBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  durationText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  info: {
-    marginTop: 10,
-    gap: 2,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-});
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 22,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    thumbnailWrap: {
+      width: '100%',
+      aspectRatio: 16 / 9,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    thumbnail: {
+      width: '100%',
+      height: '100%',
+    },
+    thumbnailPlaceholder: {
+      backgroundColor: colors.surface,
+    },
+    durationBadge: {
+      position: 'absolute',
+      bottom: 8,
+      right: 8,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    progressTrack: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 3,
+      backgroundColor: 'rgba(255,255,255,0.4)',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: colors.accent,
+    },
+    saveBadge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    musicBadge: {
+      position: 'absolute',
+      top: 8,
+      left: 8,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    durationText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    info: {
+      marginTop: 10,
+      gap: 2,
+    },
+    title: {
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 20,
+      marginBottom: 2,
+    },
+  });
+}
