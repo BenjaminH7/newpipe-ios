@@ -1,7 +1,8 @@
 // Recherche unique de l'app, ouverte depuis l'onglet Accueil : suggestions
 // pendant la frappe, puis résultats filtrés par type (titres, vidéos, albums,
-// artistes, playlists) rendus par <MusicSearchResults />. Le filtre « Vidéos »
-// interroge la recherche vidéo YouTube, les autres le catalogue YouTube Music.
+// artistes, playlists, podcasts, épisodes) rendus par <MusicSearchResults />.
+// Le filtre « Vidéos » interroge la recherche vidéo YouTube, les autres le
+// catalogue YouTube Music.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,7 +68,7 @@ export default function MusicSearchScreen() {
               setShowSuggestions(true);
             }}
             onFocus={() => setShowSuggestions(true)}
-            placeholder="Titres, vidéos, artistes, albums..."
+            placeholder="Titres, vidéos, artistes, podcasts..."
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
             returnKeyType="search"

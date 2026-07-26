@@ -38,7 +38,8 @@ interface PlayerContextValue {
   radioEnabled: boolean;
   /** Chargement des morceaux suivants de la radio en cours (seed initiale ou extension). */
   radioLoading: boolean;
-  playTrack: (track: MusicTrack, queue: MusicTrack[]) => void;
+  /** `options.radio` : prolonge automatiquement la file une fois épuisée. */
+  playTrack: (track: MusicTrack, queue: MusicTrack[], options?: { radio?: boolean }) => void;
   /** Lit un titre seul et remplit la file avec sa radio YouTube Music. */
   playTrackRadio: (track: MusicTrack) => void;
   /** Insère un titre juste après la piste en cours (« Lire ensuite »). */
@@ -232,6 +233,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // await qui se résout en microtâche depuis le cache.
   const loadTokenRef = useRef(0);
 
+  // Pistes déjà jouées depuis le début de la file courante. Sert au mode
+  // aléatoire pour savoir quand la file a fait le tour : le tirage au sort ne
+  // rencontre jamais « la fin de la file » qui déclencherait l'extension radio.
+  const playedIdsRef = useRef<Set<string>>(new Set());
+
   const loadAndPlay = useCallback(
     async (track: MusicTrack) => {
       if (musicQuotaExceededRef.current) {
@@ -244,6 +250,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const token = ++loadTokenRef.current;
       quotaTickRef.current = null;
       pendingSeekRef.current = null;
+      playedIdsRef.current.add(track.id);
       setCurrentTrack(track);
       setIsBuffering(true);
       setPosition(0);
@@ -274,10 +281,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [player, getPlaybackUri, prefetchNextTrack],
   );
 
+  // `options.radio` : la file fournie n'est qu'un point de départ, à prolonger
+  // automatiquement une fois épuisée (bouton radio d'une page artiste). Sans
+  // ça, une « radio » s'arrêterait net au bout de ses 50 titres.
   const playTrack = useCallback(
-    (track: MusicTrack, newQueue: MusicTrack[]) => {
-      setRadioEnabled(false);
+    (track: MusicTrack, newQueue: MusicTrack[], options?: { radio?: boolean }) => {
+      setRadioEnabled(options?.radio ?? false);
       setQueue(newQueue);
+      // Synchronisation immédiate : prefetchNextTrack lit cette ref dès la fin
+      // de loadAndPlay, avant que l'effet de synchronisation n'ait tourné.
+      queueRef.current = newQueue;
+      playedIdsRef.current = new Set();
       loadAndPlay(track);
     },
     [loadAndPlay],
@@ -328,6 +342,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setRadioEnabled(true);
       setQueue([track]);
       queueRef.current = [track];
+      playedIdsRef.current = new Set();
       loadAndPlay(track);
       extendRadioQueue(track.id);
     },
@@ -396,7 +411,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const cur = currentTrackRef.current;
       if (q.length === 0 || !cur) return;
 
+      // Lecture aléatoire : on tire parmi les titres pas encore joués, pour
+      // faire le tour de la file avant d'en répéter un. Un tirage uniforme sur
+      // toute la file ne rencontrerait jamais « la fin », ce qui empêcherait la
+      // radio d'aller chercher de nouveaux titres.
       if (shuffleRef.current && q.length > 1) {
+        const unplayed = q.filter((t) => t.id !== cur.id && !playedIdsRef.current.has(t.id));
+        if (unplayed.length > 0) {
+          loadAndPlay(unplayed[Math.floor(Math.random() * unplayed.length)]);
+          return;
+        }
+        // Tour complet : la radio prolonge la file, sinon on repart pour un
+        // nouveau tour sur les mêmes titres.
+        if (direction === 1 && radioEnabledRef.current) {
+          const additions = await extendRadioQueue(cur.id);
+          if (additions.length > 0) {
+            loadAndPlay(additions[Math.floor(Math.random() * additions.length)]);
+            return;
+          }
+        }
+        playedIdsRef.current = new Set();
         let randomIdx = Math.floor(Math.random() * q.length);
         const curIdx = q.findIndex((t) => t.id === cur.id);
         if (randomIdx === curIdx) randomIdx = (randomIdx + 1) % q.length;

@@ -6,6 +6,14 @@ import { SongMenuProvider } from '@/components/music/SongMenu';
 import { useNewReleasesAutoCheck } from '@/hooks/useReleasesFeed';
 import { PlayerProvider } from '@/player/PlayerContext';
 import { ThemeProvider, useTheme } from '@/theme';
+import { useWidgetSync } from '@/widgets/useWidgetSync';
+
+/** Doit vivre sous <PlayerProvider> : ne rend rien, se contente de tenir les
+ *  widgets iOS à jour. */
+function WidgetSync() {
+  useWidgetSync();
+  return null;
+}
 
 export default function RootLayout() {
   return (
@@ -26,6 +34,7 @@ function RootLayoutContent() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <JsEngineView />
       <PlayerProvider>
+        <WidgetSync />
         <SongMenuProvider>
           <Stack
             screenOptions={{
@@ -61,7 +70,7 @@ function RootLayoutContent() {
             <Stack.Screen name="music/artist" options={{ headerShown: false }} />
             <Stack.Screen name="music/album" options={{ headerShown: false }} />
             <Stack.Screen name="music/playlist" options={{ headerShown: false }} />
-            <Stack.Screen name="music/local-playlist" options={{ title: '' }} />
+            <Stack.Screen name="music/local-playlist" options={{ headerShown: false }} />
             <Stack.Screen name="music/search" options={{ headerShown: false }} />
             <Stack.Screen name="music/browse" options={{ title: '' }} />
             <Stack.Screen name="music/mood" options={{ title: '' }} />

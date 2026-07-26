@@ -65,7 +65,12 @@ export default function PlaylistScreen() {
     if (!playlist?.continuation || loadingMore) return;
     setLoadingMore(true);
     try {
-      const next = await getPlaylistContinuation(playlist.continuation);
+      // Une émission podcast pagine ses épisodes comme une playlist ; son nom
+      // est réinjecté dans chaque épisode, page suivante comprise.
+      const next = await getPlaylistContinuation(
+        playlist.continuation,
+        playlist.browseId.startsWith('MPSP') ? playlist.title : undefined,
+      );
       setPlaylist((prev) => {
         if (!prev) return prev;
         // Certaines playlists auto-générées renvoient leur première page en

@@ -1,6 +1,9 @@
 // Modèle de données du catalogue YouTube Music, calqué sur les "pages" du
 // module innertube de Metrolist/InnerTune (YTItem, HomePage, AlbumPage...)
-// mais réduit à la musique : pas de vidéos YouTube classiques ni de podcasts.
+// mais réduit à ce que YouTube Music sert lui-même : pas de vidéos YouTube
+// classiques. Les podcasts réutilisent les types existants — une émission est
+// une YTPlaylist marquée `podcast`, un épisode un YTSong (il porte un videoId
+// ordinaire, donc le lecteur n'a rien de spécial à faire).
 
 /** Un artiste tel qu'il apparaît dans un sous-titre ("run" cliquable ou non). */
 export interface ArtistRun {
@@ -47,14 +50,20 @@ export interface YTArtist {
 
 export interface YTPlaylist {
   type: 'playlist';
-  /** browseId "VL<playlistId>". */
+  /** browseId "VL<playlistId>", ou "MPSP<playlistId>" pour une émission podcast. */
   browseId: string;
-  /** playlistId nue (sans préfixe VL), pour lecture directe. */
+  /**
+   * playlistId nue (sans préfixe VL), pour lecture directe. Un podcast garde
+   * son browseId "MPSP..." : c'est le seul identifiant qui ouvre la page
+   * émission (avec son en-tête et ses épisodes).
+   */
   playlistId: string;
   title: string;
   author: string | null;
   subtitle: string | null;
   thumbnail: string;
+  /** Émission podcast plutôt que playlist musicale (pochette et icône à part). */
+  podcast?: boolean;
 }
 
 export type YTItem = YTSong | YTAlbum | YTArtist | YTPlaylist;

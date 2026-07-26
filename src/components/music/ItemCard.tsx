@@ -33,7 +33,7 @@ export function itemSubtitle(item: YTItem): string {
     case 'artist':
       return item.subtitle ?? 'Artiste';
     case 'playlist':
-      return item.subtitle ?? item.author ?? 'Playlist';
+      return item.subtitle ?? item.author ?? (item.podcast ? 'Podcast' : 'Playlist');
   }
 }
 

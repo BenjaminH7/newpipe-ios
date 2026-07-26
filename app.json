@@ -11,8 +11,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.erwinsicot.youtubeclient",
       "buildNumber": "25",
+      "appleTeamId": "UZXR7N6X7S",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.erwinsicot.youtubeclient"]
       }
     },
     "android": {
@@ -35,7 +39,8 @@
           "supportsBackgroundPlayback": true
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@bacons/apple-targets"
     ],
     "extra": {
       "router": {},

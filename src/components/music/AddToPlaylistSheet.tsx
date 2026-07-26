@@ -3,9 +3,10 @@
 // seul YTSong venu d'un résultat de recherche. Créer une playlist depuis cette
 // feuille la remplit directement avec la sélection.
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BottomSheet } from '@/components/music/BottomSheet';
+import { PlaylistCover } from '@/components/music/PlaylistCover';
 import { useLocalPlaylists } from '@/hooks/useMusicCollections';
 import type { MusicTrack } from '@/storage/musicLibrary';
 import { addTracksToLocalPlaylist, createLocalPlaylist } from '@/storage/musicCollections';
@@ -22,7 +23,6 @@ export function AddToPlaylistSheet({
   /** Appelé après un ajout effectif, pour sortir du mode sélection. */
   onAdded?: (playlistName: string, count: number) => void;
 }) {
-  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const playlists = useLocalPlaylists();
@@ -60,110 +60,62 @@ export function AddToPlaylistSheet({
     [tracks, onAdded, close],
   );
 
-  if (!tracks) return null;
+  const count = tracks?.length ?? 0;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={close}>
-      <Pressable style={styles.backdrop} onPress={close} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={styles.grabber} />
-        <View style={styles.header}>
-          <Text style={styles.title}>Ajouter à une playlist</Text>
-          <Text style={styles.subtitle}>
-            {tracks.length} titre{tracks.length > 1 ? 's' : ''} sélectionné
-            {tracks.length > 1 ? 's' : ''}
-          </Text>
+    <BottomSheet
+      visible={tracks !== null}
+      onClose={close}
+      title="Ajouter à une playlist"
+      subtitle={`${count} titre${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`}
+    >
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.newRow}>
+          <View style={styles.newIcon}>
+            <Ionicons name="add" size={22} color={colors.text} />
+          </View>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="Nouvelle playlist..."
+            placeholderTextColor={colors.muted}
+            style={styles.newInput}
+            returnKeyType="done"
+            onSubmitEditing={createAndAdd}
+          />
+          <Pressable hitSlop={8} onPress={createAndAdd} accessibilityLabel="Créer la playlist">
+            <Ionicons
+              name="checkmark-circle"
+              size={28}
+              color={newName.trim() ? colors.accent : colors.border}
+            />
+          </Pressable>
         </View>
 
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.newRow}>
-            <View style={styles.newIcon}>
-              <Ionicons name="add" size={22} color={colors.text} />
+        {playlists.map((playlist) => (
+          <Pressable
+            key={playlist.id}
+            onPress={() => addTo(playlist.id, playlist.name)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <PlaylistCover tracks={playlist.tracks} size={44} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {playlist.name}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {playlist.tracks.length} titre{playlist.tracks.length > 1 ? 's' : ''}
+              </Text>
             </View>
-            <TextInput
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="Nouvelle playlist..."
-              placeholderTextColor={colors.muted}
-              style={styles.newInput}
-              returnKeyType="done"
-              onSubmitEditing={createAndAdd}
-            />
-            <Pressable hitSlop={8} onPress={createAndAdd} accessibilityLabel="Créer la playlist">
-              <Ionicons
-                name="checkmark-circle"
-                size={28}
-                color={newName.trim() ? colors.accent : colors.border}
-              />
-            </Pressable>
-          </View>
-
-          {playlists.map((playlist) => (
-            <Pressable
-              key={playlist.id}
-              onPress={() => addTo(playlist.id, playlist.name)}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-            >
-              <View style={styles.rowIcon}>
-                <Ionicons name="list" size={22} color={colors.muted} />
-              </View>
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle} numberOfLines={1}>
-                  {playlist.name}
-                </Text>
-                <Text style={styles.rowSubtitle}>
-                  {playlist.tracks.length} titre{playlist.tracks.length > 1 ? 's' : ''}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </BottomSheet>
   );
 }
 
 function createStyles(colors: ColorPalette) {
   return StyleSheet.create({
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    sheet: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      maxHeight: '75%',
-      backgroundColor: colors.surfaceElevated,
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
-      paddingTop: 10,
-    },
-    grabber: {
-      alignSelf: 'center',
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border,
-      marginBottom: 14,
-    },
-    header: {
-      gap: 3,
-      paddingHorizontal: 20,
-      paddingBottom: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    subtitle: {
-      color: colors.muted,
-      fontSize: 13,
-    },
     pressed: {
       opacity: 0.6,
     },
@@ -197,14 +149,6 @@ function createStyles(colors: ColorPalette) {
       gap: 12,
       paddingHorizontal: 20,
       paddingVertical: 8,
-    },
-    rowIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 4,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     rowText: {
       flex: 1,

@@ -11,6 +11,7 @@ import {
   lastThumbnail,
   parseListItem,
   parseMoodSections,
+  parseMultiRowItem,
   parseQueueItem,
   parseSections,
   parseTwoRowItem,
@@ -141,16 +142,19 @@ export async function getMusicHome(options?: {
 }
 
 // ---------------------------------------------------------------------------
-// Recherche (filtres musique uniquement — pas de vidéos YouTube)
+// Recherche (catalogue YouTube Music — pas de vidéos YouTube)
 
 // Params de filtre InnerTube (protobuf encodé), mêmes valeurs que
-// Metrolist/InnerTune et ytmusicapi.
+// Metrolist/InnerTune et ytmusicapi. `podcasts` renvoie des émissions
+// (browseId MPSP...), `episodes` des épisodes isolés (videoId ordinaire).
 export const MUSIC_SEARCH_FILTERS = {
   songs: 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D',
   albums: 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D',
   artists: 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D',
   featuredPlaylists: 'EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D',
   communityPlaylists: 'EgeKAQQoAEABagoQAxAEEAoQCRAF',
+  podcasts: 'EgWKAQJQAWoMEA4QChADEAQQCRAF',
+  episodes: 'EgWKAQJIAWoMEA4QChADEAQQCRAF',
 } as const;
 
 export type MusicSearchFilter = keyof typeof MUSIC_SEARCH_FILTERS;
@@ -360,7 +364,11 @@ export async function getArtistItems(browseId: string, params?: string): Promise
 function parsePlaylistSongs(container: any): { songs: YTSong[]; continuation: string | null } {
   const songs: YTSong[] = [];
   for (const c of container?.contents ?? []) {
-    const parsed = parseListItem(c?.musicResponsiveListItemRenderer);
+    // Une page d'émission podcast liste ses épisodes en
+    // musicMultiRowListItemRenderer, pas en rangées de titres.
+    const parsed =
+      parseListItem(c?.musicResponsiveListItemRenderer) ??
+      parseMultiRowItem(c?.musicMultiRowListItemRenderer);
     if (parsed?.type === 'song') songs.push(parsed);
   }
   const continuation =
@@ -371,8 +379,22 @@ function parsePlaylistSongs(container: any): { songs: YTSong[]; continuation: st
   return { songs, continuation };
 }
 
+/**
+ * Sur la page d'une émission, une rangée d'épisode ne répète pas le nom de
+ * l'émission (elle affiche sa date de publication) : on le réinjecte pour que
+ * l'épisode reste autonome une fois dans la file de lecture, comme les titres
+ * d'un album héritent de l'artiste de l'album.
+ */
+function withShowName(songs: YTSong[], show: string): YTSong[] {
+  if (!show) return songs;
+  return songs.map((s) => ({ ...s, artists: [{ name: show, id: null }] }));
+}
+
 export async function getPlaylistPage(playlistId: string): Promise<PlaylistPageData> {
-  const browseId = playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`;
+  // Une émission podcast garde son browseId "MPSP..." : le "VL..." équivalent
+  // répond bien mais sans en-tête (ni titre, ni pochette, ni description).
+  const podcast = playlistId.startsWith('MPSP');
+  const browseId = podcast || playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`;
   const data = await musicPost('browse', { browseId });
 
   const header =
@@ -390,16 +412,24 @@ export async function getPlaylistPage(playlistId: string): Promise<PlaylistPageD
       .filter((t: string) => t && t !== '•')
       .find((t: string) => !/^\d/.test(t)) ?? null;
 
+  const title = joinRuns(header?.title) ?? '';
+
+  const filledSongs = podcast ? withShowName(songs, title) : songs;
+
   return {
     browseId,
-    playlistId: browseId.replace(/^VL/, ''),
-    title: joinRuns(header?.title) ?? '',
+    playlistId: podcast ? browseId : browseId.replace(/^VL/, ''),
+    title,
     author,
-    subtitle: joinRuns(header?.subtitle),
+    // Un podcast n'a pas de sous-titre d'en-tête : sa description tient ce
+    // rôle sur music.youtube.com.
+    subtitle:
+      joinRuns(header?.subtitle) ||
+      (podcast ? joinRuns(findFirst(data, 'musicDescriptionShelfRenderer')?.description) : null),
     secondSubtitle: joinRuns(header?.secondSubtitle),
     thumbnail:
       lastThumbnail(header?.thumbnail) || lastThumbnail(findFirst(data, 'musicThumbnailRenderer')),
-    songs,
+    songs: filledSongs,
     continuation,
   };
 }
@@ -408,16 +438,27 @@ export async function getPlaylistPage(playlistId: string): Promise<PlaylistPageD
 // avec un jeton `continuationCommand`, qui ne fonctionne que dans le corps de
 // la requête — envoyé en paramètre d'URL, YouTube Music renvoie la première
 // page à la place de la suivante.
+/** `showName` : renseigné pour une émission podcast (voir `withShowName`). */
 export async function getPlaylistContinuation(
   continuation: string,
+  showName?: string,
 ): Promise<{ songs: YTSong[]; continuation: string | null }> {
   const data = await musicPost('browse', { continuation });
   const cont =
     data?.continuationContents?.musicPlaylistShelfContinuation ??
     data?.continuationContents?.musicShelfContinuation;
-  if (cont) return parsePlaylistSongs(cont);
-  const appended = findFirst(data, 'appendContinuationItemsAction');
-  return parsePlaylistSongs({ contents: appended?.continuationItems ?? [] });
+  let page = cont
+    ? parsePlaylistSongs(cont)
+    : parsePlaylistSongs({
+        contents: findFirst(data, 'appendContinuationItemsAction')?.continuationItems ?? [],
+      });
+  if (page.songs.length === 0) {
+    // Les pages d'émissions podcast paginent à l'ancienne
+    // (`nextContinuationData`) : ce jeton-là n'est honoré qu'en paramètre d'URL.
+    const urlData = await musicPostContinuation('browse', continuation);
+    page = parsePlaylistSongs(urlData?.continuationContents?.musicShelfContinuation);
+  }
+  return showName ? { ...page, songs: withShowName(page.songs, showName) } : page;
 }
 
 // ---------------------------------------------------------------------------

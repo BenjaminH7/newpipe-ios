@@ -2,7 +2,7 @@
 // filtre (Titres / Albums / Artistes / Playlists) au-dessus d'une seule liste.
 // Contrairement à Metrolist il n'y a pas de compte Google connecté : le contenu
 // vient de ce qui a été liké, enregistré ou suivi dans l'app.
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
 import { AddToPlaylistSheet } from '@/components/music/AddToPlaylistSheet';
+import { PlaylistCover } from '@/components/music/PlaylistCover';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
@@ -361,9 +362,10 @@ export default function LibraryScreen() {
           renderItem={({ item: entry }) =>
             entry.kind === 'local' ? (
               <CollectionRow
-                thumbnail={entry.item.tracks[0]?.coverArtUrl ?? ''}
+                thumbnail=""
+                cover={<PlaylistCover tracks={entry.item.tracks} size={54} />}
                 title={entry.item.name}
-                subtitle={`${entry.item.tracks.length} titre${entry.item.tracks.length > 1 ? 's' : ''}`}
+                subtitle={`Playlist • ${entry.item.tracks.length} titre${entry.item.tracks.length > 1 ? 's' : ''}`}
                 icon="list"
                 onPress={() =>
                   router.push({ pathname: '/music/local-playlist', params: { id: entry.item.id } })
@@ -399,6 +401,7 @@ export default function LibraryScreen() {
 
 function CollectionRow({
   thumbnail,
+  cover,
   title,
   subtitle,
   round = false,
@@ -406,6 +409,8 @@ function CollectionRow({
   onPress,
 }: {
   thumbnail: string;
+  /** Pochette sur mesure (mosaïque des playlists locales) ; sinon `thumbnail`. */
+  cover?: ReactNode;
   title: string;
   subtitle: string;
   round?: boolean;
@@ -416,7 +421,7 @@ function CollectionRow({
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={onPress}>
-      {thumbnail ? (
+      {cover ?? (thumbnail ? (
         <Image
           source={{ uri: thumbnail }}
           style={[styles.rowCover, round && styles.roundCover]}
@@ -426,7 +431,7 @@ function CollectionRow({
         <View style={[styles.rowCover, round && styles.roundCover, styles.coverFallback]}>
           <Ionicons name={round ? 'person' : icon} size={22} color={colors.muted} />
         </View>
-      )}
+      ))}
       <View style={styles.rowText}>
         <Text style={styles.rowTitle} numberOfLines={1}>
           {title}

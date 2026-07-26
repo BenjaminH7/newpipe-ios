@@ -97,7 +97,11 @@ export default function ArtistScreen() {
             params: endpoint.params ?? undefined,
           });
           if (queue.songs.length > 0) {
-            playTrack(songToTrack(queue.songs[0]), songsToTracks(queue.songs));
+            // La radio d'artiste ne renvoie que ~50 titres et aucun automix :
+            // sans le mode radio, la lecture s'arrêterait net au bout.
+            playTrack(songToTrack(queue.songs[0]), songsToTracks(queue.songs), {
+              radio: endpointKind === 'radio',
+            });
             return;
           }
         } catch {

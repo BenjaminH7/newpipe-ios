@@ -26,6 +26,15 @@ export function formatDuration(totalSeconds: number): string {
   return `${minutes}:${pad(seconds)}`;
 }
 
+/** Durée cumulée d'une playlist, façon Spotify : « 12 min », « 1 h 12 ». */
+export function formatTotalDuration(totalSeconds: number): string {
+  const minutes = Math.round(totalSeconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest}`;
+}
+
 export function formatUploadDate(dateStr: string): string {
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;

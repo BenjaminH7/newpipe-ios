@@ -1,8 +1,10 @@
 // Résultats de recherche : barre de filtres (titres, vidéos, albums, artistes,
-// playlists), liste paginée par continuation et lecture d'un titre dans la file
-// des titres affichés. Le filtre « Vidéos » sort du catalogue YouTube Music et
-// interroge la recherche vidéo YouTube ordinaire, pour que l'accueil couvre
-// aussi ce qui n'existe pas dans YouTube Music (clips, lives, vidéos).
+// playlists, podcasts, épisodes), liste paginée par continuation et lecture
+// d'un titre dans la file des titres affichés. Le filtre « Vidéos » sort du
+// catalogue YouTube Music et interroge la recherche vidéo YouTube ordinaire,
+// pour que l'accueil couvre aussi ce qui n'existe pas dans YouTube Music
+// (clips, lives, vidéos). Un épisode de podcast est un titre comme un autre
+// (videoId), une émission ouvre la page playlist de ses épisodes.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +33,8 @@ const FILTERS: { key: ResultFilter; label: string }[] = [
   { key: 'albums', label: 'Albums' },
   { key: 'artists', label: 'Artistes' },
   { key: 'communityPlaylists', label: 'Playlists' },
+  { key: 'podcasts', label: 'Podcasts' },
+  { key: 'episodes', label: 'Épisodes' },
 ];
 
 type Status = 'idle' | 'loading' | 'error' | 'ready';
@@ -234,6 +238,8 @@ function ResultRow({ item, onPress }: { item: YTItem; onPress: () => void }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const round = item.type === 'artist';
   const title = item.type === 'artist' ? item.name : item.title;
+  const podcast = item.type === 'playlist' && item.podcast === true;
+  const fallbackIcon = round ? 'person' : podcast ? 'mic' : 'musical-notes';
 
   return (
     <Pressable style={({ pressed }) => [styles.resultRow, pressed && styles.pressed]} onPress={onPress}>
@@ -245,7 +251,7 @@ function ResultRow({ item, onPress }: { item: YTItem; onPress: () => void }) {
         />
       ) : (
         <View style={[styles.resultCover, round && styles.roundCover, styles.coverFallback]}>
-          <Ionicons name={round ? 'person' : 'musical-notes'} size={22} color={colors.muted} />
+          <Ionicons name={fallbackIcon} size={22} color={colors.muted} />
         </View>
       )}
       <View style={styles.resultInfo}>

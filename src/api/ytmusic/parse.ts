@@ -8,6 +8,7 @@ import type {
   MoodSection,
   MusicSection,
   YTItem,
+  YTPlaylist,
   YTSong,
 } from './types';
 
@@ -61,10 +62,24 @@ function pageTypeOf(endpoint: any): string | null {
   );
 }
 
+// Durée écrite en toutes lettres ("3 h 51 min", "45 minutes") : les rangées
+// d'épisodes de podcast n'utilisent pas la forme "h:mm:ss" des titres.
+const SPELLED_DURATION_RE = /(\d+)\s*(heures?|hours?|hr|h|minutes?|mins?|min|secondes?|seconds?|sec|s)\b/gi;
+
+function parseSpelledDuration(text: string): number {
+  let total = -1;
+  for (const [, value, unit] of text.matchAll(SPELLED_DURATION_RE)) {
+    const scale = unit[0].toLowerCase() === 'h' ? 3600 : unit[0].toLowerCase() === 'm' ? 60 : 1;
+    total = (total < 0 ? 0 : total) + parseInt(value, 10) * scale;
+  }
+  return total;
+}
+
 export function parseDurationText(text: string | null | undefined): number {
   if (!text) return -1;
-  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
-  if (parts.length < 2 || parts.some((p) => Number.isNaN(p))) return -1;
+  const trimmed = text.trim();
+  const parts = trimmed.split(':').map((p) => parseInt(p, 10));
+  if (parts.length < 2 || parts.some((p) => Number.isNaN(p))) return parseSpelledDuration(trimmed);
   return parts.reduce((acc, p) => acc * 60 + p, 0);
 }
 
@@ -103,6 +118,25 @@ const YEAR_RE = /^\d{4}$/;
 const DURATION_RE = /^\d+:\d{2}(:\d{2})?$/;
 
 /**
+ * Émission podcast : browseId "MPSP<playlistId>". C'est une page à part
+ * entière côté YouTube Music — le "VL<playlistId>" équivalent existe mais
+ * revient sans en-tête ni description, d'où le MPSP conservé tel quel.
+ */
+function isPodcastShowEndpoint(browseId: string | null, pageType: string | null): boolean {
+  return pageType === 'MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE' || !!browseId?.startsWith('MPSP');
+}
+
+function podcastShowItem(
+  browseId: string,
+  title: string,
+  thumbnail: string,
+  subtitle: string | null,
+  author: string | null,
+): YTPlaylist {
+  return { type: 'playlist', browseId, playlistId: browseId, title, author, subtitle, thumbnail, podcast: true };
+}
+
+/**
  * Découpe les runs d'un sous-titre ("Artiste A, Artiste B • Album • 3:42")
  * en artistes / album / durée / année, en s'appuyant d'abord sur les
  * browseIds (fiable quelle que soit la langue), puis sur la forme du texte.
@@ -125,6 +159,11 @@ function splitSubtitleRuns(runs: RawRun[]): {
     const pageType = pageTypeOf(run.navigationEndpoint);
     if (browseId?.startsWith('MPRE') || pageType === 'MUSIC_PAGE_TYPE_ALBUM') {
       album = { name: text, id: browseId ?? '' };
+    } else if (isPodcastShowEndpoint(browseId, pageType)) {
+      // Nom de l'émission sous un épisode : le browseId pointe vers une page
+      // podcast, pas vers une chaîne — on garde le nom sans id pour ne pas
+      // proposer un "aller à l'artiste" qui ouvrirait une page introuvable.
+      artists.push({ name: text, id: null });
     } else if (browseId?.startsWith('UC') || pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
       artists.push({ name: text, id: browseId });
     } else if (DURATION_RE.test(text)) {
@@ -212,6 +251,15 @@ export function parseListItem(r: any): YTItem | null {
       explicit: hasExplicitBadge(r.badges),
     };
   }
+  if (isPodcastShowEndpoint(browseId, pageType)) {
+    return podcastShowItem(
+      browseId,
+      title,
+      thumbnail,
+      subtitle,
+      fallbackArtists(secondaryRuns)[0]?.name ?? null,
+    );
+  }
   if (
     pageType === 'MUSIC_PAGE_TYPE_PLAYLIST' ||
     pageType === 'MUSIC_PAGE_TYPE_AUDIOBOOK' ||
@@ -278,6 +326,9 @@ export function parseTwoRowItem(r: any): YTItem | null {
       explicit: hasExplicitBadge(r.subtitleBadges),
     };
   }
+  if (isPodcastShowEndpoint(browseId, pageType)) {
+    return podcastShowItem(browseId, title, thumbnail, subtitle, subtitle);
+  }
   if (pageType === 'MUSIC_PAGE_TYPE_PLAYLIST' || browseId.startsWith('VL')) {
     const playlistId = browseId.replace(/^VL/, '');
     return {
@@ -310,13 +361,23 @@ export function parseMultiRowItem(r: any): YTSong | null {
   const showRuns = runsOf(r.secondTitle);
   const show = showRuns[0]?.text?.trim();
   const showId = browseIdOf(showRuns[0]?.navigationEndpoint);
+  // Sur la page d'une émission, secondTitle est vide (l'émission est déjà le
+  // titre de la page) : la ligne secondaire d'un épisode y est sa date, comme
+  // dans YouTube Music.
+  const date = joinRuns(r.subtitle)?.trim();
+  const byline = show || date;
+  // La durée n'est pas dans une colonne fixe mais dans la barre de
+  // progression, écrite en toutes lettres ("3 h 51 min").
+  const duration = parseDurationText(
+    joinRuns(r.playbackProgress?.musicPlaybackProgressRenderer?.durationText),
+  );
   return {
     type: 'song',
     id: videoId,
     title,
-    artists: show ? [{ name: show, id: showId?.startsWith('UC') ? showId : null }] : [],
+    artists: byline ? [{ name: byline, id: show && showId?.startsWith('UC') ? showId : null }] : [],
     album: null,
-    duration: -1,
+    duration,
     thumbnail: lastThumbnail(r.thumbnail),
     explicit: false,
   };
