@@ -69,6 +69,12 @@ export default function MusicPlayerScreen() {
     toggleRadio,
   } = usePlayer();
   const [trackWidth, setTrackWidth] = useState(0);
+  // La pochette occupe l'espace restant entre la barre du haut et le bloc de
+  // contrôles : on mesure cette zone et on prend le plus petit côté, pour que
+  // les contrôles ne soient jamais poussés hors de la feuille, quel que soit
+  // l'écran. (Une largeur fixe débordait sur les petits appareils.)
+  const [coverArea, setCoverArea] = useState({ width: 0, height: 0 });
+  const coverSize = Math.floor(Math.min(coverArea.width, coverArea.height));
   const isInLibrary = useIsInMusicLibrary(currentTrack?.id ?? '');
   const toggleTrackInLibrary = useToggleTrackInLibrary();
   const [musicQuotaMinutes] = useMusicQuotaMinutes();
@@ -345,35 +351,20 @@ export default function MusicPlayerScreen() {
         pointerEvents="none"
       />
       <View style={[styles.content, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {/* Barre supérieure épurée façon Spotify : fermeture à gauche, contexte
+            au centre — les actions secondaires vivent en bas de l'écran. */}
         <View style={styles.topRow}>
-          <Text style={styles.topRowLabel} numberOfLines={1}>
-            {radioEnabled ? 'Radio' : 'Lecture en cours'}
-          </Text>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-down" size={28} color="#ffffff" />
+          <Pressable onPress={() => router.back()} hitSlop={8} style={styles.topRowSide}>
+            <Ionicons name="chevron-down" size={26} color="#ffffff" />
           </Pressable>
-          <View style={styles.topRowRight}>
-            <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={8}>
-              <Ionicons name={showLyrics ? 'mic' : 'mic-outline'} size={22} color={showLyrics ? colors.accent : '#ffffff'} />
-            </Pressable>
-            <Pressable onPress={toggleRadio} hitSlop={8} disabled={radioLoading}>
-              {radioLoading ? (
-                <ActivityIndicator size="small" color={colors.accent} />
-              ) : (
-                <Ionicons name={radioEnabled ? 'radio' : 'radio-outline'} size={22} color={radioEnabled ? colors.accent : '#ffffff'} />
-              )}
-            </Pressable>
-            <Pressable onPress={openSleepTimerPicker} hitSlop={8}>
-              <Ionicons name="timer-outline" size={22} color={sleepTimerRemaining !== null ? colors.accent : '#ffffff'} />
-            </Pressable>
-          </View>
+          <Text style={styles.topRowLabel} numberOfLines={1}>
+            {radioEnabled ? 'Radio' : 'En lecture'}
+          </Text>
+          <View style={styles.topRowSide} />
         </View>
-        {sleepTimerRemaining !== null && (
-          <Text style={styles.sleepTimerLabel}>Pause automatique dans {formatDuration(sleepTimerRemaining)}</Text>
-        )}
 
         {showLyrics ? (
-          <View style={styles.lyricsPane}>
+          <View style={styles.lyricsCard}>
             {lyricsStatus === 'loading' && (
               <ActivityIndicator color="rgba(255,255,255,0.7)" style={styles.lyricsLoading} />
             )}
@@ -423,12 +414,28 @@ export default function MusicPlayerScreen() {
             )}
           </View>
         ) : (
-          <Image source={{ uri: currentTrack.coverArtUrl }} style={styles.cover} contentFit="cover" />
+          <View
+            style={styles.coverArea}
+            onLayout={(e) =>
+              setCoverArea({
+                width: e.nativeEvent.layout.width,
+                height: e.nativeEvent.layout.height,
+              })
+            }
+          >
+            {coverSize > 0 && (
+              <Image
+                source={{ uri: currentTrack.coverArtUrl }}
+                style={[styles.cover, { width: coverSize, height: coverSize }]}
+                contentFit="cover"
+              />
+            )}
+          </View>
         )}
 
         <View style={styles.meta}>
           <View style={styles.metaText}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={styles.title} numberOfLines={1}>
               {currentTrack.title}
             </Text>
             <Pressable
@@ -500,7 +507,7 @@ export default function MusicPlayerScreen() {
 
         <View style={styles.controlsRow}>
           <Pressable hitSlop={12} onPress={toggleShuffle}>
-            <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : 'rgba(255,255,255,0.7)'} />
+            <Ionicons name="shuffle" size={24} color={shuffle ? colors.accent : 'rgba(255,255,255,0.7)'} />
           </Pressable>
           <Pressable hitSlop={12} onPress={playPrevious}>
             <Ionicons name="play-skip-back" size={32} color="#ffffff" />
@@ -525,8 +532,43 @@ export default function MusicPlayerScreen() {
             <Ionicons name="play-skip-forward" size={32} color="#ffffff" />
           </Pressable>
           <Pressable hitSlop={12} onPress={cycleRepeat} style={styles.repeatButton}>
-            <Ionicons name="repeat" size={22} color={repeat === 'off' ? 'rgba(255,255,255,0.7)' : colors.accent} />
+            <Ionicons name="repeat" size={24} color={repeat === 'off' ? 'rgba(255,255,255,0.7)' : colors.accent} />
             {repeat === 'one' && <Text style={styles.repeatOneBadge}>1</Text>}
+          </Pressable>
+        </View>
+
+        {/* Actions secondaires en pied d'écran, comme la rangée
+            appareils/partage/file d'attente de Spotify. */}
+        <View style={styles.secondaryRow}>
+          <View style={styles.secondaryGroup}>
+            <Pressable onPress={toggleRadio} hitSlop={10} disabled={radioLoading}>
+              {radioLoading ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons
+                  name={radioEnabled ? 'radio' : 'radio-outline'}
+                  size={22}
+                  color={radioEnabled ? colors.accent : 'rgba(255,255,255,0.7)'}
+                />
+              )}
+            </Pressable>
+            <Pressable onPress={openSleepTimerPicker} hitSlop={10} style={styles.sleepTimerButton}>
+              <Ionicons
+                name="timer-outline"
+                size={22}
+                color={sleepTimerRemaining !== null ? colors.accent : 'rgba(255,255,255,0.7)'}
+              />
+              {sleepTimerRemaining !== null && (
+                <Text style={styles.sleepTimerText}>{formatDuration(sleepTimerRemaining)}</Text>
+              )}
+            </Pressable>
+          </View>
+          <Pressable onPress={() => setShowLyrics((v) => !v)} hitSlop={10}>
+            <Ionicons
+              name={showLyrics ? 'mic' : 'mic-outline'}
+              size={22}
+              color={showLyrics ? colors.accent : 'rgba(255,255,255,0.7)'}
+            />
           </Pressable>
         </View>
       </View>
@@ -559,37 +601,31 @@ function createStyles(colors: ColorPalette) {
     topRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: 4,
+    },
+    // Zones latérales de même largeur pour garder le label parfaitement
+    // centré (la droite est un simple espaceur).
+    topRowSide: {
+      width: 40,
+      alignItems: 'flex-start',
     },
     topRowLabel: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
+      flex: 1,
       textAlign: 'center',
-      color: 'rgba(255,255,255,0.75)',
+      color: 'rgba(255,255,255,0.8)',
       fontSize: 11,
       fontWeight: '700',
       textTransform: 'uppercase',
-      letterSpacing: 1,
+      letterSpacing: 1.2,
     },
-    topRowRight: {
-      flexDirection: 'row',
+    coverArea: {
+      flex: 1,
       alignItems: 'center',
-      gap: 20,
-    },
-    sleepTimerLabel: {
-      color: colors.accent,
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
-      marginBottom: 8,
+      justifyContent: 'center',
+      marginVertical: 8,
     },
     cover: {
-      width: '100%',
-      aspectRatio: 1,
       borderRadius: 8,
-      alignSelf: 'center',
       backgroundColor: 'rgba(255,255,255,0.08)',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 10 },
@@ -597,8 +633,15 @@ function createStyles(colors: ColorPalette) {
       shadowRadius: 20,
       elevation: 10,
     },
-    lyricsPane: {
+    // Paroles présentées en carte arrondie sur le fond flouté, comme la carte
+    // lyrics de Spotify.
+    lyricsCard: {
       flex: 1,
+      marginTop: 8,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      paddingHorizontal: 18,
+      overflow: 'hidden',
     },
     lyricsLoading: {
       marginTop: 24,
@@ -653,7 +696,7 @@ function createStyles(colors: ColorPalette) {
     meta: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 28,
+      marginTop: 20,
       gap: 12,
     },
     metaText: {
@@ -662,14 +705,14 @@ function createStyles(colors: ColorPalette) {
     },
     title: {
       color: '#ffffff',
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: '800',
-      lineHeight: 30,
+      lineHeight: 28,
       letterSpacing: -0.5,
     },
     artistLink: {
       color: 'rgba(255,255,255,0.7)',
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '500',
     },
     favoriteButton: {
@@ -680,7 +723,7 @@ function createStyles(colors: ColorPalette) {
     },
     progressTouchArea: {
       justifyContent: 'center',
-      marginTop: 28,
+      marginTop: 16,
       paddingVertical: 10,
     },
     progressTrack: {
@@ -724,7 +767,7 @@ function createStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 36,
+      marginTop: 20,
     },
     // Bouton play blanc à icône noire, la signature du lecteur Spotify —
     // le fond est toujours sombre ici (pochette floutée + dégradé noir).
@@ -749,8 +792,8 @@ function createStyles(colors: ColorPalette) {
       marginLeft: 3,
     },
     repeatButton: {
-      width: 22,
-      height: 22,
+      width: 24,
+      height: 24,
     },
     repeatOneBadge: {
       position: 'absolute',
@@ -759,6 +802,28 @@ function createStyles(colors: ColorPalette) {
       fontSize: 9,
       fontWeight: '700',
       color: colors.accent,
+    },
+    secondaryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 24,
+    },
+    secondaryGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 24,
+    },
+    sleepTimerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    sleepTimerText: {
+      color: colors.accent,
+      fontSize: 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
     },
   });
 }
