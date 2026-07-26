@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.erwinsicot.youtubeclient",
-      "buildNumber": "23",
+      "buildNumber": "24",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

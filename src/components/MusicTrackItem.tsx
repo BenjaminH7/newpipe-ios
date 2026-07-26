@@ -10,7 +10,10 @@ export function MusicTrackItem({
   track,
   isActive = false,
   isPlaying = false,
+  selectionMode = false,
+  selected = false,
   onPress,
+  onLongPress,
   onArtistPress,
   onRemove,
   onRetryDownload,
@@ -18,7 +21,11 @@ export function MusicTrackItem({
   track: MusicTrack;
   isActive?: boolean;
   isPlaying?: boolean;
+  /** En mode sélection la rangée coche/décoche au lieu de lancer la lecture. */
+  selectionMode?: boolean;
+  selected?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   onArtistPress: () => void;
   onRemove: () => void;
   onRetryDownload: () => void;
@@ -82,7 +89,19 @@ export function MusicTrackItem({
           },
       ]}
     >
-      <Pressable style={({ pressed }) => [styles.container, pressed && styles.pressed]} onPress={onPress}>
+      <Pressable
+        style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={300}
+      >
+        {selectionMode && (
+          <Ionicons
+            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+            size={24}
+            color={selected ? colors.accent : colors.muted}
+          />
+        )}
         <Image source={{ uri: track.coverArtUrl }} style={[styles.cover, sharedStyles.coverSmall]} contentFit="cover" />
         <View style={styles.info}>
           <View style={styles.titleRow}>
@@ -102,7 +121,12 @@ export function MusicTrackItem({
             </Text>
           </View>
           <View style={styles.subRow}>
-            <Pressable hitSlop={6} onPress={onArtistPress} style={styles.artistPressable}>
+            <Pressable
+              hitSlop={6}
+              disabled={selectionMode}
+              onPress={onArtistPress}
+              style={styles.artistPressable}
+            >
               <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
                 {track.artist}
               </Text>
@@ -116,23 +140,29 @@ export function MusicTrackItem({
           </View>
         </View>
 
-        {track.downloadStatus === 'downloading' && (
-          <ActivityIndicator color={colors.muted} style={styles.status} />
-        )}
-        {track.downloadStatus === 'failed' && (
-          <Pressable hitSlop={8} onPress={onRetryDownload} style={styles.status}>
-            <Ionicons name="refresh-circle-outline" size={22} color={colors.accent} />
-          </Pressable>
-        )}
-        {track.downloadStatus === 'downloaded' && (
-          <Ionicons name="checkmark-circle" size={18} color={colors.muted} style={styles.status} />
-        )}
+        {/* Les actions par titre laissent la place aux cases à cocher : en mode
+            sélection, seule la sélection doit être atteignable. */}
+        {!selectionMode && (
+          <>
+            {track.downloadStatus === 'downloading' && (
+              <ActivityIndicator color={colors.muted} style={styles.status} />
+            )}
+            {track.downloadStatus === 'failed' && (
+              <Pressable hitSlop={8} onPress={onRetryDownload} style={styles.status}>
+                <Ionicons name="refresh-circle-outline" size={22} color={colors.accent} />
+              </Pressable>
+            )}
+            {track.downloadStatus === 'downloaded' && (
+              <Ionicons name="checkmark-circle" size={18} color={colors.muted} style={styles.status} />
+            )}
 
-        <Pressable hitSlop={8} onPress={confirmRemove} style={styles.status} disabled={removing}>
-          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-            <Ionicons name="heart" size={20} color={colors.accent} />
-          </Animated.View>
-        </Pressable>
+            <Pressable hitSlop={8} onPress={confirmRemove} style={styles.status} disabled={removing}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Ionicons name="heart" size={20} color={colors.accent} />
+              </Animated.View>
+            </Pressable>
+          </>
+        )}
       </Pressable>
     </Animated.View>
   );

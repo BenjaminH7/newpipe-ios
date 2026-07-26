@@ -50,12 +50,25 @@ export const localPlaylistsStore = createListStore<LocalPlaylist>(
 
 // --- Opérations dédiées aux playlists locales -------------------------------
 
-export async function createLocalPlaylist(name: string): Promise<LocalPlaylist> {
+/** Première occurrence gagne : l'ordre de sélection est conservé. */
+function dedupe(tracks: MusicTrack[]): MusicTrack[] {
+  const seen = new Set<string>();
+  return tracks.filter((t) => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
+}
+
+export async function createLocalPlaylist(
+  name: string,
+  tracks: MusicTrack[] = [],
+): Promise<LocalPlaylist> {
   const playlist: LocalPlaylist = {
     id: `local-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
     name: name.trim() || 'Nouvelle playlist',
     createdAt: Date.now(),
-    tracks: [],
+    tracks: dedupe(tracks),
   };
   await localPlaylistsStore.add(playlist);
   return playlist;
@@ -76,6 +89,21 @@ export async function addTrackToLocalPlaylist(id: string, track: MusicTrack): Pr
   if (playlist.tracks.some((t) => t.id === track.id)) return false;
   await localPlaylistsStore.update(id, { tracks: [...playlist.tracks, track] });
   return true;
+}
+
+/** Ajout en lot (sélection multiple depuis la bibliothèque). Renvoie le nombre
+ *  de titres réellement ajoutés, les doublons étant ignorés. */
+export async function addTracksToLocalPlaylist(
+  id: string,
+  tracks: MusicTrack[],
+): Promise<number> {
+  const playlist = localPlaylistsStore.getSync().find((p) => p.id === id);
+  if (!playlist) return 0;
+  const existing = new Set(playlist.tracks.map((t) => t.id));
+  const added = dedupe(tracks).filter((t) => !existing.has(t.id));
+  if (added.length === 0) return 0;
+  await localPlaylistsStore.update(id, { tracks: [...playlist.tracks, ...added] });
+  return added.length;
 }
 
 export async function removeTrackFromLocalPlaylist(id: string, trackId: string): Promise<void> {

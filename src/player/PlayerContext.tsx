@@ -8,6 +8,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import {
+  addRemoteTrackListeners,
+  refreshRemoteCommands,
+} from '../../modules/now-playing-controls';
 import { getRadioQueue, getVideoInfo, type VideoSummary } from '@/api/youtube';
 import { getMusicRadioQueue } from '@/api/ytmusic/client';
 import { songsToTracks } from '@/api/ytmusic/convert';
@@ -452,6 +456,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (player.playing) player.pause();
     else if (!musicQuotaExceededRef.current) player.play();
   }, [player]);
+
+  // Écran verrouillé / Centre de contrôle : les boutons « précédent » et
+  // « suivant » changent de piste au lieu de reculer/avancer de 10 s. Sans le
+  // module natif (Expo Go, Android), addRemoteTrackListeners est un no-op.
+  useEffect(() => addRemoteTrackListeners({
+    onNextTrack: playNext,
+    onPreviousTrack: playPrevious,
+  }), [playNext, playPrevious]);
+
+  // expo-video réenregistre ses commandes de saut à chaque changement de piste.
+  useEffect(() => {
+    if (currentTrack) refreshRemoteCommands();
+  }, [currentTrack]);
 
   const toggleShuffle = useCallback(() => setShuffle((v) => !v), []);
   const cycleRepeat = useCallback(

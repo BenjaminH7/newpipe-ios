@@ -3,12 +3,13 @@
 // Contrairement à Metrolist il n'y a pas de compte Google connecté : le contenu
 // vient de ce qui a été liké, enregistré ou suivi dans l'app.
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MusicTrackItem } from '@/components/MusicTrackItem';
+import { AddToPlaylistSheet } from '@/components/music/AddToPlaylistSheet';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
@@ -49,6 +50,10 @@ export default function LibraryScreen() {
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  // Sélection multiple de l'onglet Titres : `null` hors mode sélection, sinon
+  // les ids dans l'ordre de sélection (qui devient l'ordre de la playlist).
+  const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const matches = useCallback(
     (...fields: (string | null | undefined)[]) => {
@@ -86,6 +91,38 @@ export default function LibraryScreen() {
     localPlaylists.length,
   ]);
 
+  const startSelection = useCallback((id?: string) => setSelectedIds(id ? [id] : []), []);
+  const endSelection = useCallback(() => {
+    setSelectedIds(null);
+    setSheetOpen(false);
+  }, []);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      if (!prev) return prev;
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    });
+  }, []);
+
+  const allFilteredSelected =
+    selectedIds !== null &&
+    filteredTracks.length > 0 &&
+    filteredTracks.every((t) => selectedIds.includes(t.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(allFilteredSelected ? [] : filteredTracks.map((t) => t.id));
+  }, [allFilteredSelected, filteredTracks]);
+
+  // Les pistes dans l'ordre où elles ont été cochées, en ignorant celles
+  // retirées de la bibliothèque entre-temps.
+  const selectedTracks = useMemo(
+    () =>
+      (selectedIds ?? [])
+        .map((id) => tracks.find((t) => t.id === id))
+        .filter((t): t is NonNullable<typeof t> => t !== undefined),
+    [selectedIds, tracks],
+  );
+
   const createPlaylist = useCallback(() => {
     const name = newName.trim();
     if (!name) {
@@ -110,6 +147,7 @@ export default function LibraryScreen() {
               // Sinon le champ de création rouvrirait, autofocus compris, au
               // retour sur l'onglet Playlists.
               setCreating(false);
+              endSelection();
             }}
             style={({ pressed }) => [
               styles.tabChip,
@@ -122,21 +160,58 @@ export default function LibraryScreen() {
         ))}
       </View>
 
-      <View style={styles.searchBar}>
-        <View style={styles.searchField}>
-          <Ionicons name="search" size={19} color={colors.muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Rechercher dans la bibliothèque"
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
+      {selectedIds !== null ? (
+        <View style={styles.selectionBar}>
+          <Pressable hitSlop={8} onPress={endSelection} accessibilityLabel="Annuler la sélection">
+            <Ionicons name="close" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={styles.selectionCount}>
+            {selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}
+          </Text>
+          <Pressable hitSlop={8} onPress={toggleSelectAll}>
+            <Text style={styles.selectionAction}>
+              {allFilteredSelected ? 'Aucun' : 'Tout'}
+            </Text>
+          </Pressable>
+          <Pressable
+            disabled={selectedIds.length === 0}
+            onPress={() => setSheetOpen(true)}
+            style={({ pressed }) => [
+              styles.selectionButton,
+              selectedIds.length === 0 && styles.selectionButtonDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="add" size={18} color={colors.accentText} />
+            <Text style={styles.selectionButtonLabel}>Playlist</Text>
+          </Pressable>
         </View>
-      </View>
+      ) : (
+        <View style={styles.searchBar}>
+          <View style={styles.searchField}>
+            <Ionicons name="search" size={19} color={colors.muted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Rechercher dans la bibliothèque"
+              placeholderTextColor={colors.muted}
+              style={styles.searchInput}
+              returnKeyType="search"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+          {tab === 'songs' && tracks.length > 0 && (
+            <Pressable
+              hitSlop={8}
+              onPress={() => startSelection()}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Text style={styles.selectionAction}>Sélectionner</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {tab === 'songs' && (
         <FlatList
@@ -160,7 +235,12 @@ export default function LibraryScreen() {
               track={item}
               isActive={currentTrack?.id === item.id}
               isPlaying={isPlaying}
-              onPress={() => playTrack(item, filteredTracks)}
+              selectionMode={selectedIds !== null}
+              selected={selectedIds?.includes(item.id) ?? false}
+              onPress={() =>
+                selectedIds !== null ? toggleSelected(item.id) : playTrack(item, filteredTracks)
+              }
+              onLongPress={() => (selectedIds === null ? startSelection(item.id) : undefined)}
               onArtistPress={() => router.push({ pathname: '/music/artist', params: { artist: item.artist } })}
               onRemove={() => removeTrack(item.id)}
               onRetryDownload={() => retryDownload(item.id)}
@@ -303,6 +383,15 @@ export default function LibraryScreen() {
         />
       )}
 
+      <AddToPlaylistSheet
+        tracks={sheetOpen ? selectedTracks : null}
+        onClose={() => setSheetOpen(false)}
+        onAdded={(name, count) => {
+          endSelection();
+          Alert.alert(`${count} titre${count > 1 ? 's ajoutés' : ' ajouté'} à « ${name} »`);
+        }}
+      />
+
       <MiniPlayer />
     </View>
   );
@@ -415,17 +504,59 @@ function createStyles(colors: ColorPalette) {
       fontSize: 15,
     },
     searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 10,
     },
     searchField: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       backgroundColor: colors.surface,
       borderRadius: 10,
       paddingHorizontal: 12,
+    },
+    // Barre qui remplace la recherche pendant une sélection multiple.
+    selectionBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 10,
+    },
+    selectionCount: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    selectionAction: {
+      color: colors.accent,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    selectionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.accent,
+      borderRadius: 999,
+      paddingLeft: 10,
+      paddingRight: 14,
+      paddingVertical: 8,
+    },
+    selectionButtonDisabled: {
+      opacity: 0.4,
+    },
+    selectionButtonLabel: {
+      color: colors.accentText,
+      fontSize: 14,
+      fontWeight: '700',
     },
     searchInput: {
       flex: 1,

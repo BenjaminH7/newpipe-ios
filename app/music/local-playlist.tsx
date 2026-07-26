@@ -142,7 +142,7 @@ export default function LocalPlaylistScreen() {
           <EmptyView
             icon="list-outline"
             title="Playlist vide"
-            message="Ajoute des titres depuis leur menu « Ajouter à une playlist »."
+            message="Ajoute des titres depuis leur menu « Ajouter à une playlist », ou sélectionne-les d’un coup dans l’onglet Titres de la bibliothèque."
           />
         }
         renderItem={({ item, index }) => {
