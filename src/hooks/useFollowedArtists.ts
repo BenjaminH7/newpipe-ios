@@ -21,7 +21,7 @@ export function useFollowedArtists(): FollowedArtist[] {
   return artists;
 }
 
-export function useIsArtistFollowed(artistId: number | null): boolean {
+export function useIsArtistFollowed(artistId: string | null): boolean {
   const artists = useFollowedArtists();
   return artistId !== null && artists.some((a) => a.id === artistId);
 }
@@ -31,8 +31,8 @@ export function useIsArtistFollowed(artistId: number | null): boolean {
 // dans le fil). Ignoré pour un désabonnement, qui purge aussi les sorties de
 // l'artiste du fil.
 export function useToggleArtistFollow(): (
-  artist: { id: number; name: string; pictureUrl: string | null },
-  knownAlbumIds: number[],
+  artist: { id: string; name: string; pictureUrl: string | null },
+  knownAlbumIds: string[],
 ) => void {
   return useCallback((artist, knownAlbumIds) => {
     if (isArtistFollowed(artist.id)) {

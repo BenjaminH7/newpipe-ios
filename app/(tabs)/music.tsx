@@ -1,62 +1,149 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+// Accueil YouTube Music, calqué sur le HomeScreen de Metrolist : chips de
+// filtrage, carrousels personnalisés servis par InnerTube (FEmusic_home) et
+// raccourcis vers la bibliothèque. Le contenu vient du catalogue en ligne, la
+// lecture passe par le lecteur global de l'app.
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getMusicHome } from '@/api/ytmusic/client';
+import { songToTrack, songsToTracks } from '@/api/ytmusic/convert';
+import type { HomeChip, MusicHomePage, MusicSection, YTItem, YTSong } from '@/api/ytmusic/types';
 import { MiniPlayer } from '@/components/MiniPlayer';
-import { MusicTrackItem } from '@/components/MusicTrackItem';
+import { SectionCarousel } from '@/components/music/SectionCarousel';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { EmptyView } from '@/components/StatusView';
+import { ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
-import { useMusicLibrary, useRemoveMusicTrack, useRetryMusicDownload } from '@/hooks/useMusicLibrary';
+import { useMusicNavigation } from '@/hooks/useMusicNavigation';
+import { useSongMenu } from '@/components/music/SongMenu';
 import { useUnseenReleasesCount } from '@/hooks/useReleasesFeed';
 import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
 
-export default function MusicScreen() {
+type Status = 'loading' | 'error' | 'ready';
+
+export default function MusicHomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const tracks = useMusicLibrary();
-  const { currentTrack, isPlaying, playTrack } = usePlayer();
-  const removeTrack = useRemoveMusicTrack();
-  const retryDownload = useRetryMusicDownload();
   const { contentBottomPadding } = useBottomOffsets();
-  const [query, setQuery] = useState('');
+  const { currentTrack, isPlaying, playTrack } = usePlayer();
+  const { openItem } = useMusicNavigation();
+  const { showSongMenu } = useSongMenu();
   const unseenReleases = useUnseenReleasesCount();
 
-  const openArtist = (artist: string) => {
-    router.push({ pathname: '/music/artist', params: { artist } });
-  };
+  const [status, setStatus] = useState<Status>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState<MusicHomePage | null>(null);
+  const [activeChip, setActiveChip] = useState<HomeChip | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return tracks;
-    return tracks.filter(
-      (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q),
-    );
-  }, [tracks, query]);
+  const load = useCallback(async (chip: HomeChip | null) => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const result = await getMusicHome(chip ? { params: chip.params } : undefined);
+      setPage(result);
+      setStatus('ready');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de charger l’accueil.');
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    load(null);
+  }, [load]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const result = await getMusicHome(activeChip ? { params: activeChip.params } : undefined);
+      setPage(result);
+      setStatus('ready');
+    } catch {
+      // Rafraîchissement best-effort : on garde le contenu déjà affiché.
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeChip]);
+
+  // Les carrousels suivants arrivent par continuation, comme le scroll infini
+  // de music.youtube.com.
+  const loadMore = useCallback(async () => {
+    if (!page?.continuation || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await getMusicHome({ continuation: page.continuation });
+      setPage((prev) =>
+        prev
+          ? { ...prev, sections: [...prev.sections, ...next.sections], continuation: next.continuation }
+          : next,
+      );
+    } catch {
+      setPage((prev) => (prev ? { ...prev, continuation: null } : prev));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page?.continuation, loadingMore]);
+
+  const selectChip = useCallback(
+    (chip: HomeChip | null) => {
+      setActiveChip(chip);
+      load(chip);
+    },
+    [load],
+  );
+
+  const playSong = useCallback(
+    (song: YTSong, queue: YTSong[]) => {
+      playTrack(songToTrack(song), songsToTracks(queue.length > 0 ? queue : [song]));
+    },
+    [playTrack],
+  );
+
+  const openMore = useCallback(
+    (section: MusicSection) => {
+      if (!section.moreBrowseId) return;
+      router.push({
+        pathname: '/music/browse',
+        params: {
+          browseId: section.moreBrowseId,
+          params: section.moreParams ?? '',
+          title: section.title,
+        },
+      });
+    },
+    [router],
+  );
+
+  const handleItem = useCallback((item: YTItem) => openItem(item), [openItem]);
 
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Musique"
-        subtitle={
-          tracks.length > 0 ? `${tracks.length} titre${tracks.length > 1 ? 's' : ''}` : undefined
-        }
+        title="Accueil"
         right={
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/music/explore')}
+              hitSlop={8}
+              accessibilityLabel="Explorer"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Ionicons name="compass-outline" size={25} color={colors.text} />
+            </Pressable>
             <Pressable
               onPress={() => router.push('/music/releases')}
               hitSlop={8}
               accessibilityLabel="Nouveautés"
-              style={({ pressed }) => pressed && { opacity: 0.7 }}
+              style={({ pressed }) => pressed && styles.pressed}
             >
-              <Ionicons name="notifications-outline" size={26} color={colors.text} />
+              <Ionicons name="notifications-outline" size={25} color={colors.text} />
               {unseenReleases > 0 && (
-                <View style={styles.releasesBadge}>
-                  <Text style={styles.releasesBadgeText}>
-                    {unseenReleases > 9 ? '9+' : unseenReleases}
-                  </Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unseenReleases > 9 ? '9+' : unseenReleases}</Text>
                 </View>
               )}
             </Pressable>
@@ -64,60 +151,89 @@ export default function MusicScreen() {
               onPress={() => router.push('/history')}
               hitSlop={8}
               accessibilityLabel="Historique"
-              style={({ pressed }) => pressed && { opacity: 0.7 }}
+              style={({ pressed }) => pressed && styles.pressed}
             >
-              <Ionicons name="time-outline" size={26} color={colors.text} />
+              <Ionicons name="time-outline" size={25} color={colors.text} />
             </Pressable>
           </View>
         }
       />
 
-      <View style={styles.searchBar}>
-        <View style={styles.searchField}>
-          <Ionicons name="search" size={20} color={colors.muted} style={styles.searchIcon} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Rechercher..."
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-        </View>
-      </View>
-
-      {tracks.length === 0 ? (
-        <EmptyView
-          icon="musical-notes-outline"
-          title="Ta bibliothèque est vide"
-          message="Appuie sur l'icône note de musique d'une vidéo pour l'ajouter et l'écouter hors-ligne."
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyView message="Aucun résultat." />
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: contentBottomPadding }]}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <MusicTrackItem
-              track={item}
-              isActive={currentTrack?.id === item.id}
-              isPlaying={isPlaying}
-              onPress={() => playTrack(item, filtered)}
-              onArtistPress={() => openArtist(item.artist)}
-              onRemove={() => removeTrack(item.id)}
-              onRetryDownload={() => retryDownload(item.id)}
+      {page && page.chips.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+          style={styles.chipsScroll}
+        >
+          <Chip label="Tout" active={activeChip === null} onPress={() => selectChip(null)} />
+          {page.chips.map((chip) => (
+            <Chip
+              key={chip.params}
+              label={chip.title}
+              active={activeChip?.params === chip.params}
+              onPress={() => selectChip(chip)}
             />
-          )}
-        />
+          ))}
+        </ScrollView>
+      )}
+
+      {status === 'loading' && <LoadingView label="Chargement de YouTube Music..." />}
+      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(activeChip)} />}
+      {status === 'ready' && page && (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomPadding }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.muted} />
+          }
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 600) loadMore();
+          }}
+          scrollEventThrottle={200}
+        >
+          {page.sections.map((section, index) => (
+            <SectionCarousel
+              key={`${section.title}-${index}`}
+              section={section}
+              currentTrackId={currentTrack?.id}
+              isPlaying={isPlaying}
+              onItemPress={handleItem}
+              onSongPress={playSong}
+              onSongMenu={showSongMenu}
+              onMore={section.moreBrowseId ? () => openMore(section) : undefined}
+            />
+          ))}
+          {loadingMore && <ActivityIndicator color={colors.muted} style={styles.moreLoader} />}
+        </ScrollView>
       )}
 
       <MiniPlayer />
     </View>
+  );
+}
+
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
+    >
+      <Text style={[styles.chipLabel, active && styles.chipLabelActive]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -127,13 +243,15 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    pressed: {
+      opacity: 0.7,
+    },
     headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 18,
     },
-    // Pastille de compteur sur la cloche : nombre de sorties pas encore vues.
-    releasesBadge: {
+    badge: {
       position: 'absolute',
       top: -4,
       right: -6,
@@ -145,38 +263,42 @@ function createStyles(colors: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    releasesBadgeText: {
+    badgeText: {
       color: colors.accentText,
       fontSize: 10,
       fontWeight: '800',
     },
-    searchBar: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 12,
+    chipsScroll: {
+      flexGrow: 0,
+      marginBottom: 4,
     },
-    // Champ de recherche façon Spotify : rectangle arrondi (pas de pilule),
-    // un peu plus haut, texte plus affirmé.
-    searchField: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    chipsRow: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
       backgroundColor: colors.surface,
-      borderRadius: 10,
-      paddingHorizontal: 12,
     },
-    searchIcon: {
-      marginRight: 10,
+    chipActive: {
+      backgroundColor: colors.text,
     },
-    searchInput: {
-      flex: 1,
+    chipLabel: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: '500',
-      paddingVertical: 12,
+      fontSize: 13,
+      fontWeight: '700',
     },
-    list: {
-      paddingHorizontal: 20,
-      paddingTop: 4,
+    chipLabelActive: {
+      color: colors.background,
+    },
+    scrollContent: {
+      paddingTop: 10,
+    },
+    moreLoader: {
+      marginVertical: 20,
     },
   });
 }

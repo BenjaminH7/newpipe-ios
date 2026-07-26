@@ -5,14 +5,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface ReleaseFeedItem {
-  albumId: number;
-  artistId: number;
+  /** browseId "MPRE..." de l'album YouTube Music. */
+  albumId: string;
+  /** browseId "UC..." de l'artiste suivi. */
+  artistId: string;
   artistName: string;
   title: string;
   coverUrl: string;
+  /** Année de sortie telle que fournie par YouTube Music, ou chaîne vide. */
   releaseDate: string;
-  recordType: string;
-  trackCount: number;
   discoveredAt: number;
   seen: boolean;
 }
@@ -36,11 +37,11 @@ async function persist() {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
 }
 
-// Tri par date de sortie la plus récente d'abord ; à date égale (ou absente),
-// la découverte la plus récente d'abord.
+// Découverte la plus récente d'abord ; à découverte égale, l'année de sortie
+// la plus récente (YouTube Music ne donne qu'une année, pas une date pleine).
 function sortFeed(items: ReleaseFeedItem[]): ReleaseFeedItem[] {
   return [...items].sort(
-    (a, b) => b.releaseDate.localeCompare(a.releaseDate) || b.discoveredAt - a.discoveredAt,
+    (a, b) => b.discoveredAt - a.discoveredAt || b.releaseDate.localeCompare(a.releaseDate),
   );
 }
 
@@ -54,7 +55,9 @@ export function loadReleasesFeed(): Promise<ReleaseFeedItem[]> {
 
   loadPromise = AsyncStorage.getItem(STORAGE_KEY)
     .then((raw) => {
-      cache = raw ? (JSON.parse(raw) as ReleaseFeedItem[]) : [];
+      const stored = raw ? (JSON.parse(raw) as ReleaseFeedItem[]) : [];
+      // Entrées d'avant la bascule sur YouTube Music (ids Deezer numériques).
+      cache = stored.filter((i) => typeof i.albumId === 'string');
       loaded = true;
       notify();
       return cache;
@@ -85,7 +88,7 @@ export async function markAllReleasesSeen(): Promise<void> {
 }
 
 // Un artiste qu'on ne suit plus disparaît du fil avec ses sorties.
-export async function removeArtistReleases(artistId: number): Promise<void> {
+export async function removeArtistReleases(artistId: string): Promise<void> {
   const next = cache.filter((i) => i.artistId !== artistId);
   if (next.length === cache.length) return;
   cache = next;

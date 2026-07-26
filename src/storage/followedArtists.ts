@@ -1,16 +1,18 @@
-// Artistes musicaux suivis depuis la page artiste, persistés via AsyncStorage.
+// Artistes YouTube Music suivis depuis leur page, persistés via AsyncStorage.
 // Même pattern pub/sub que src/storage/subscriptions.ts. `knownAlbumIds`
 // mémorise la discographie déjà vue au moment du suivi puis à chaque
-// vérification : le diff avec Deezer donne les nouvelles sorties (voir
-// src/api/newReleases.ts).
+// vérification : le diff avec la page artiste donne les nouvelles sorties
+// (voir src/api/newReleases.ts).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface FollowedArtist {
-  id: number;
+  /** browseId de chaîne YouTube Music ("UC..."). */
+  id: string;
   name: string;
   pictureUrl: string | null;
   followedAt: number;
-  knownAlbumIds: number[];
+  /** browseIds "MPRE..." des albums/singles déjà connus. */
+  knownAlbumIds: string[];
 }
 
 const STORAGE_KEY = '@youtubeclient/followedArtists';
@@ -38,7 +40,10 @@ export function loadFollowedArtists(): Promise<FollowedArtist[]> {
 
   loadPromise = AsyncStorage.getItem(STORAGE_KEY)
     .then((raw) => {
-      cache = raw ? (JSON.parse(raw) as FollowedArtist[]) : [];
+      const stored = raw ? (JSON.parse(raw) as FollowedArtist[]) : [];
+      // Les versions antérieures stockaient des identifiants Deezer numériques ;
+      // ils ne veulent plus rien dire côté YouTube Music, on repart à zéro.
+      cache = stored.filter((a) => typeof a.id === 'string');
       loaded = true;
       notify();
       return cache;
@@ -52,13 +57,13 @@ export function loadFollowedArtists(): Promise<FollowedArtist[]> {
   return loadPromise;
 }
 
-export function isArtistFollowed(id: number): boolean {
+export function isArtistFollowed(id: string): boolean {
   return cache.some((a) => a.id === id);
 }
 
 export async function followArtist(
-  artist: { id: number; name: string; pictureUrl: string | null },
-  knownAlbumIds: number[],
+  artist: { id: string; name: string; pictureUrl: string | null },
+  knownAlbumIds: string[],
 ): Promise<void> {
   if (!artist.id || isArtistFollowed(artist.id)) return;
   cache = [
@@ -75,7 +80,7 @@ export async function followArtist(
   await persist();
 }
 
-export async function unfollowArtist(id: number): Promise<void> {
+export async function unfollowArtist(id: string): Promise<void> {
   if (!isArtistFollowed(id)) return;
   cache = cache.filter((a) => a.id !== id);
   notify();
@@ -84,7 +89,7 @@ export async function unfollowArtist(id: number): Promise<void> {
 
 // Ajoute des albums à la discographie connue d'un artiste (union), après une
 // vérification : ils ne seront plus signalés comme nouveautés.
-export async function recordKnownAlbums(artistId: number, albumIds: number[]): Promise<void> {
+export async function recordKnownAlbums(artistId: string, albumIds: string[]): Promise<void> {
   const artist = cache.find((a) => a.id === artistId);
   if (!artist) return;
   const known = new Set(artist.knownAlbumIds);

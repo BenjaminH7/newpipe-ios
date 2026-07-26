@@ -1,112 +1,98 @@
+// Page album YouTube Music (browseId MPRE...) : pochette, artistes cliquables,
+// liste numérotée des titres et actions de lecture — équivalent de
+// l'AlbumScreen de Metrolist.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { getAlbum, type DeezerAlbumDetails, type DeezerTrack } from '@/api/deezer';
-import { pendingMusicTrack, pendingTrackId, toMusicTrack } from '@/api/musicMatch';
-import { ArtistTrackRow } from '@/components/ArtistTrackRow';
+import { getAlbumPage } from '@/api/ytmusic/client';
+import { artistNames, songToTrack, songsToTracks } from '@/api/ytmusic/convert';
+import { resizeThumbnail } from '@/api/ytmusic/parse';
+import type { AlbumPageData, YTSong } from '@/api/ytmusic/types';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { DetailHeader } from '@/components/music/DetailHeader';
+import { SongRow } from '@/components/music/SongRow';
+import { useSongMenu } from '@/components/music/SongMenu';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
-import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
+import { useIsAlbumSaved } from '@/hooks/useMusicCollections';
+import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { usePlayer } from '@/player/PlayerContext';
+import { savedAlbumsStore } from '@/storage/musicCollections';
 import { useTheme, type ColorPalette } from '@/theme';
 
-type SearchParams = { albumId: string; title?: string; coverUrl?: string };
 type Status = 'loading' | 'error' | 'ready';
 
-const PLAY_BUTTON_SIZE = 58;
-
-const RECORD_TYPE_LABELS: Record<string, string> = {
-  album: 'Album',
-  single: 'Single',
-  ep: 'EP',
-  compile: 'Compilation',
-};
-
 export default function AlbumScreen() {
-  const { albumId, title: titleParam, coverUrl: coverUrlParam } = useLocalSearchParams<SearchParams>();
+  const { browseId, title, thumbnail } = useLocalSearchParams<{
+    browseId: string;
+    title?: string;
+    thumbnail?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, sharedStyles, scheme } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { currentTrack, isPlaying, playTrack } = usePlayer();
   const { contentBottomPadding } = useBottomOffsets();
+  const { currentTrack, isPlaying, playTrack, toggleShuffle, shuffle } = usePlayer();
+  const { openArtist } = useMusicNavigation();
+  const { showSongMenu } = useSongMenu();
 
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [album, setAlbum] = useState<DeezerAlbumDetails | null>(null);
-  // Référence stable obligatoire : un `album?.tracks ?? []` inline recrée un
-  // tableau à chaque rendu et fait boucler l'effet de useYoutubeResolution.
-  const tracks = useMemo(() => album?.tracks ?? [], [album]);
-  const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
+  const [album, setAlbum] = useState<AlbumPageData | null>(null);
+  const saved = useIsAlbumSaved(browseId ?? null);
 
-  const load = useCallback(async (id: string) => {
+  const load = useCallback(async () => {
+    if (!browseId) return;
     setStatus('loading');
     setError(null);
     try {
-      const result = await getAlbum(Number(id));
-      if (!result) {
-        setError('Album introuvable.');
-        setStatus('error');
-        return;
-      }
-      setAlbum(result);
+      setAlbum(await getAlbumPage(browseId));
       setStatus('ready');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
+      setError(e instanceof Error ? e.message : "Impossible de charger l'album.");
       setStatus('error');
     }
-  }, []);
+  }, [browseId]);
 
   useEffect(() => {
-    if (albumId) load(albumId);
-  }, [albumId, load]);
+    load();
+  }, [load]);
 
-  const openArtist = useCallback(() => {
-    if (album?.artistName) {
-      router.push({ pathname: '/music/artist', params: { artist: album.artistName } });
-    }
-  }, [album, router]);
-
-  const handlePressTrack = useCallback(
-    async (track: DeezerTrack) => {
-      const video = await resolveTrack(track);
-      if (!video) {
-        Alert.alert('Introuvable', `Impossible de trouver "${track.title}" sur YouTube.`);
-        return;
-      }
-
-      // La file contient TOUTES les pistes de l'album : celles pas encore
-      // résolues côté YouTube y entrent en différé (résolues par le lecteur
-      // au moment de les jouer ou en préchargement). Sinon, un clic rapide
-      // fige une file quasi vide et l'avance automatique s'arrête à la fin
-      // de la piste cliquée.
-      const merged = { ...resolvedRef.current, [track.id]: video };
-      const queue = tracks.map((t) => {
-        const v = merged[t.id];
-        return v && v !== 'pending' ? toMusicTrack(v, t) : pendingMusicTrack(t);
-      });
-
-      playTrack(toMusicTrack(video, track), queue);
+  const playFrom = useCallback(
+    (song: YTSong) => {
+      if (!album) return;
+      playTrack(songToTrack(song), songsToTracks(album.songs));
     },
-    [tracks, playTrack, resolveTrack, resolvedRef],
+    [album, playTrack],
   );
 
-  const handlePlayAll = useCallback(() => {
-    if (tracks.length > 0) handlePressTrack(tracks[0]);
-  }, [tracks, handlePressTrack]);
+  const playAll = useCallback(() => {
+    if (album && album.songs.length > 0) playFrom(album.songs[0]);
+  }, [album, playFrom]);
 
-  const coverUrl = album?.coverUrl || coverUrlParam || null;
-  const title = album?.title ?? titleParam ?? '';
-  const year = album?.releaseDate ? album.releaseDate.slice(0, 4) : '';
-  const typeLabel = album ? RECORD_TYPE_LABELS[album.recordType] ?? '' : '';
-  const trackCountLabel =
-    album && album.trackCount >= 0 ? `${album.trackCount} titre${album.trackCount > 1 ? 's' : ''}` : '';
-  const metaLine = [typeLabel, year, trackCountLabel].filter(Boolean).join(' • ');
+  const shuffleAll = useCallback(() => {
+    if (!album || album.songs.length === 0) return;
+    if (!shuffle) toggleShuffle();
+    playFrom(album.songs[Math.floor(Math.random() * album.songs.length)]);
+  }, [album, playFrom, shuffle, toggleShuffle]);
+
+  const toggleSave = useCallback(() => {
+    if (!album) return;
+    savedAlbumsStore.toggle({
+      browseId: album.browseId,
+      title: album.title,
+      artist: artistNames(album.artists),
+      year: album.year,
+      thumbnail: album.thumbnail,
+      savedAt: Date.now(),
+    });
+  }, [album]);
+
+  const headerCover = resizeThumbnail(album?.thumbnail || thumbnail || '', 544);
+  const firstArtist = album?.artists.find((a) => a.id);
 
   return (
     <View style={styles.container}>
@@ -115,94 +101,46 @@ export default function AlbumScreen() {
         onPress={() => router.back()}
         style={[styles.backButton, { top: insets.top + 8 }]}
       >
-        <Ionicons name="chevron-back" size={24} color="#ffffff" />
+        <Ionicons name="chevron-back" size={26} color={colors.text} />
       </Pressable>
 
-      {status === 'loading' && <LoadingView label="Chargement de l'album..." />}
-      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(albumId)} />}
-      {status === 'ready' && (
+      {status === 'loading' && <LoadingView label={title || "Chargement de l'album..."} />}
+      {status === 'error' && <ErrorView message={error ?? ''} onRetry={load} />}
+      {status === 'ready' && album && (
         <FlatList
-          data={tracks}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ paddingBottom: contentBottomPadding }}
+          data={album.songs}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          contentContainerStyle={[
+            styles.list,
+            { paddingTop: insets.top + 52, paddingBottom: contentBottomPadding },
+          ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.header}>
-              {/* Décor façon Spotify : la pochette très floutée fond en dégradé
-                  vers la couleur de l'écran — même recette que le lecteur,
-                  pas d'extraction de couleur dominante nécessaire. */}
-              {coverUrl ? (
-                <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                  <Image
-                    source={{ uri: coverUrl }}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    blurRadius={60}
-                  />
-                  <LinearGradient
-                    colors={[
-                      scheme === 'dark' ? 'rgba(18,18,18,0.35)' : 'rgba(255,255,255,0.35)',
-                      colors.background,
-                    ]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </View>
-              ) : null}
-
-              {coverUrl ? (
-                <Image source={{ uri: coverUrl }} style={styles.cover} contentFit="cover" />
-              ) : (
-                <View style={[styles.cover, styles.coverPlaceholder]}>
-                  <Ionicons name="disc" size={64} color={colors.muted} />
-                </View>
-              )}
-              <Text style={[sharedStyles.text, styles.title]} numberOfLines={3}>
-                {title}
-              </Text>
-              {album?.artistName ? (
-                <Pressable hitSlop={8} onPress={openArtist} style={styles.artistPressable}>
-                  <Text style={[sharedStyles.text, styles.artistLink]} numberOfLines={1}>
-                    {album.artistName}
-                  </Text>
-                </Pressable>
-              ) : null}
-              {metaLine ? (
-                <Text style={[sharedStyles.mutedText, styles.metaLine]}>{metaLine}</Text>
-              ) : null}
-
-              <View style={styles.actionsRow}>
-                <Pressable
-                  hitSlop={8}
-                  onPress={handlePlayAll}
-                  disabled={tracks.length === 0}
-                  style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
-                >
-                  <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
-                </Pressable>
-              </View>
-            </View>
+            <DetailHeader
+              thumbnail={headerCover}
+              title={album.title}
+              subtitle={artistNames(album.artists) || album.subtitle}
+              secondSubtitle={album.secondSubtitle}
+              saved={saved}
+              onToggleSave={toggleSave}
+              onPlay={playAll}
+              onShuffle={shuffleAll}
+              onSubtitlePress={
+                firstArtist?.id ? () => openArtist(firstArtist.id!, firstArtist.name) : undefined
+              }
+            />
           }
-          renderItem={({ item, index }) => {
-            const video = resolved[item.id];
-            const activeVideo = video && video !== 'pending' ? video : null;
-            // Le second test couvre la piste courante encore différée (le
-            // lecteur n'a pas fini de la résoudre côté YouTube).
-            const isActive =
-              !!currentTrack &&
-              ((!!activeVideo && activeVideo.id === currentTrack.id) ||
-                currentTrack.id === pendingTrackId(item));
-            return (
-              <ArtistTrackRow
-                rank={index + 1}
-                track={item}
-                isResolving={video === 'pending'}
-                isActive={isActive}
-                isPlaying={isPlaying}
-                onPress={() => handlePressTrack(item)}
-              />
-            );
-          }}
-          ListEmptyComponent={<EmptyView message="Aucun titre trouvé pour cet album." />}
+          ListEmptyComponent={<EmptyView message="Aucun titre dans cet album." />}
+          renderItem={({ item, index }) => (
+            <SongRow
+              song={item}
+              index={index + 1}
+              isActive={item.id === currentTrack?.id}
+              isPlaying={isPlaying}
+              onPress={() => playFrom(item)}
+              onMenu={() => showSongMenu(item)}
+            />
+          )}
         />
       )}
       <MiniPlayer />
@@ -222,76 +160,11 @@ function createStyles(colors: ColorPalette) {
       zIndex: 20,
       width: 36,
       height: 36,
-      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.4)',
     },
-    // Header façon Spotify : pochette centrée avec ombre portée, puis titre,
-    // artiste et méta alignés à gauche, bouton play ancré à droite.
-    header: {
-      paddingTop: 72,
+    list: {
       paddingHorizontal: 20,
-      paddingBottom: 4,
-      overflow: 'hidden',
-    },
-    cover: {
-      width: 230,
-      height: 230,
-      borderRadius: 8,
-      alignSelf: 'center',
-      backgroundColor: colors.surface,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.35,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    coverPlaceholder: {
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '800',
-      letterSpacing: -0.5,
-      marginTop: 20,
-    },
-    artistPressable: {
-      alignSelf: 'flex-start',
-    },
-    artistLink: {
-      fontSize: 15,
-      fontWeight: '700',
-      marginTop: 8,
-    },
-    metaLine: {
-      marginTop: 4,
-    },
-    actionsRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      marginTop: 4,
-    },
-    playButton: {
-      width: PLAY_BUTTON_SIZE,
-      height: PLAY_BUTTON_SIZE,
-      borderRadius: PLAY_BUTTON_SIZE / 2,
-      backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
-    },
-    playButtonPressed: {
-      opacity: 0.85,
-    },
-    playIcon: {
-      marginLeft: 3,
     },
   });
 }

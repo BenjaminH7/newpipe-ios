@@ -10,6 +10,8 @@ import { Alert, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { isPendingMusicTrack, radioTrackToMusicTrack, resolvePendingMusicTrack } from '@/api/musicMatch';
 import { getRadioQueue, getVideoInfo } from '@/api/youtube';
+import { getMusicRadioQueue } from '@/api/ytmusic/client';
+import { songsToTracks } from '@/api/ytmusic/convert';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { recordMusicPlayed } from '@/storage/history';
 import { getLocalAudioUri } from '@/storage/musicDownloads';
@@ -34,6 +36,12 @@ interface PlayerContextValue {
   /** Chargement des morceaux suivants de la radio en cours (seed initiale ou extension). */
   radioLoading: boolean;
   playTrack: (track: MusicTrack, queue: MusicTrack[]) => void;
+  /** Lit un titre seul et remplit la file avec sa radio YouTube Music. */
+  playTrackRadio: (track: MusicTrack) => void;
+  /** Insère un titre juste après la piste en cours (« Lire ensuite »). */
+  enqueueNext: (track: MusicTrack) => void;
+  /** Ajoute un titre en fin de file. */
+  enqueueLast: (track: MusicTrack) => void;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
@@ -279,18 +287,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [loadAndPlay],
   );
 
-  // Étend la file avec le Mix YouTube ("radio") de `seedId` : dédoublonne
-  // contre la file actuelle (le Mix renvoie souvent la piste de départ et des
-  // voisines déjà connues) et renvoie les morceaux effectivement ajoutés,
-  // pour que l'appelant puisse enchaîner la lecture dessus immédiatement.
+  // Étend la file avec la radio du titre `seedId` : d'abord la vraie file
+  // YouTube Music (endpoint next, playlist RDAMVM — mêmes suggestions et
+  // métadonnées propres que le mode radio de Metrolist), sinon repli sur le
+  // Mix YouTube classique. Dédoublonne contre la file actuelle et renvoie les
+  // morceaux effectivement ajoutés, pour que l'appelant puisse enchaîner la
+  // lecture dessus immédiatement.
   const extendRadioQueue = useCallback(async (seedId: string): Promise<MusicTrack[]> => {
     setRadioLoading(true);
     try {
-      const related = await getRadioQueue(seedId);
+      let related: MusicTrack[];
+      try {
+        related = songsToTracks(await getMusicRadioQueue(seedId));
+      } catch {
+        related = (await getRadioQueue(seedId)).map(radioTrackToMusicTrack);
+      }
       const existingIds = new Set(queueRef.current.map((t) => t.id));
-      const additions = related
-        .filter((v) => v.id !== seedId && !existingIds.has(v.id))
-        .map(radioTrackToMusicTrack);
+      const additions = related.filter((v) => v.id !== seedId && !existingIds.has(v.id));
       if (additions.length > 0) {
         setQueue((prev) => [...prev, ...additions]);
       }
@@ -311,6 +324,56 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const cur = currentTrackRef.current;
     if (cur) extendRadioQueue(cur.id);
   }, [extendRadioQueue]);
+
+  // Lecture "à la YouTube Music" d'un titre isolé (accueil, recherche...) :
+  // le titre démarre tout de suite, la file se remplit derrière avec sa radio.
+  const playTrackRadio = useCallback(
+    (track: MusicTrack) => {
+      setRadioEnabled(true);
+      setQueue([track]);
+      queueRef.current = [track];
+      loadAndPlay(track);
+      extendRadioQueue(track.id);
+    },
+    [loadAndPlay, extendRadioQueue],
+  );
+
+  // « Lire ensuite » : insère après la piste en cours (ou remplace la file si
+  // rien ne joue). Déjà présent dans la file : on le déplace plutôt que de le
+  // dupliquer, comme Metrolist.
+  const enqueueNext = useCallback(
+    (track: MusicTrack) => {
+      const cur = currentTrackRef.current;
+      if (!cur) {
+        setQueue([track]);
+        queueRef.current = [track];
+        loadAndPlay(track);
+        return;
+      }
+      setQueue((prev) => {
+        const without = prev.filter((t) => t.id !== track.id || t.id === cur.id);
+        const idx = without.findIndex((t) => t.id === cur.id);
+        const next = [...without];
+        next.splice(idx + 1, 0, track);
+        return next;
+      });
+    },
+    [loadAndPlay],
+  );
+
+  const enqueueLast = useCallback(
+    (track: MusicTrack) => {
+      const cur = currentTrackRef.current;
+      if (!cur) {
+        setQueue([track]);
+        queueRef.current = [track];
+        loadAndPlay(track);
+        return;
+      }
+      setQueue((prev) => (prev.some((t) => t.id === track.id) ? prev : [...prev, track]));
+    },
+    [loadAndPlay],
+  );
 
   const stepQueue = useCallback(
     async (direction: 1 | -1) => {
@@ -474,6 +537,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       radioEnabled,
       radioLoading,
       playTrack,
+      playTrackRadio,
+      enqueueNext,
+      enqueueLast,
       togglePlay,
       playNext,
       playPrevious,
@@ -496,6 +562,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       radioEnabled,
       radioLoading,
       playTrack,
+      playTrackRadio,
+      enqueueNext,
+      enqueueLast,
       togglePlay,
       playNext,
       playPrevious,

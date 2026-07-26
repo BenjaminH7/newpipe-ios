@@ -1,133 +1,157 @@
+// Page artiste YouTube Music (browseId UC...), calquée sur l'ArtistScreen de
+// Metrolist : hero plein écran, boutons radio / aléatoire, titres populaires
+// puis les étagères de la page (albums, singles, apparitions, artistes
+// similaires) telles que YouTube Music les renvoie.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import {
-  getArtist,
-  getArtistAlbums,
-  getArtistTopTracks,
-  searchArtist,
-  type DeezerAlbum,
-  type DeezerArtist,
-  type DeezerTrack,
-} from '@/api/deezer';
-import { pendingMusicTrack, pendingTrackId, toMusicTrack } from '@/api/musicMatch';
-import { AlbumCard } from '@/components/AlbumCard';
-import { ArtistTrackRow } from '@/components/ArtistTrackRow';
+import { findArtistByName, getArtistPage, getMusicQueue } from '@/api/ytmusic/client';
+import { songToTrack, songsToTracks } from '@/api/ytmusic/convert';
+import { resizeThumbnail } from '@/api/ytmusic/parse';
+import type { ArtistPageData, MusicSection, YTItem, YTSong } from '@/api/ytmusic/types';
+import { albumsOfArtistPage } from '@/api/newReleases';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { SectionCarousel } from '@/components/music/SectionCarousel';
+import { SongRow } from '@/components/music/SongRow';
+import { useSongMenu } from '@/components/music/SongMenu';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StatusView';
 import { useBottomOffsets } from '@/hooks/useBottomOffsets';
 import { useIsArtistFollowed, useToggleArtistFollow } from '@/hooks/useFollowedArtists';
-import { useYoutubeResolution } from '@/hooks/useYoutubeResolution';
+import { useMusicNavigation } from '@/hooks/useMusicNavigation';
 import { usePlayer } from '@/player/PlayerContext';
 import { useTheme, type ColorPalette } from '@/theme';
-import { formatCount } from '@/utils/format';
 
-type SearchParams = { artist: string; artistId?: string };
 type Status = 'loading' | 'error' | 'ready';
 
-const TRACKS_LIMIT = 25;
-const ALBUMS_LIMIT = 30;
 const PLAY_BUTTON_SIZE = 58;
 
 export default function ArtistScreen() {
-  const { artist: artistName, artistId } = useLocalSearchParams<SearchParams>();
+  // `browseId` est la voie normale ; `artist`/`name` couvre les entrées
+  // héritées (historique, lecteur) où seul le nom est connu.
+  const { browseId, name, artist } = useLocalSearchParams<{
+    browseId?: string;
+    name?: string;
+    artist?: string;
+  }>();
+  const displayName = name || artist || '';
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, sharedStyles } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { currentTrack, isPlaying, shuffle, playTrack, toggleShuffle } = usePlayer();
   const { contentBottomPadding } = useBottomOffsets();
+  const { currentTrack, isPlaying, playTrack, playTrackRadio, toggleShuffle, shuffle } = usePlayer();
+  const { openItem } = useMusicNavigation();
+  const { showSongMenu } = useSongMenu();
 
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [artistInfo, setArtistInfo] = useState<DeezerArtist | null>(null);
-  const [tracks, setTracks] = useState<DeezerTrack[]>([]);
-  const [albums, setAlbums] = useState<DeezerAlbum[]>([]);
-  const { resolved, resolvedRef, resolveTrack } = useYoutubeResolution(tracks);
-  const isFollowed = useIsArtistFollowed(artistInfo?.id ?? null);
+  const [page, setPage] = useState<ArtistPageData | null>(null);
+  const isFollowed = useIsArtistFollowed(page?.browseId ?? null);
   const toggleFollow = useToggleArtistFollow();
 
-  const load = useCallback(async (name: string, id?: string) => {
+  const load = useCallback(async () => {
     setStatus('loading');
     setError(null);
     try {
-      // Si on connaît l'id Deezer (navigation depuis la liste d'artistes de la
-      // recherche), on charge directement : la recherche par nom est floue et
-      // peut renvoyer un homonyme plus populaire (ex: "Odeya" -> ODESZA).
-      const numericId = id ? Number(id) : NaN;
-      const artistResult =
-        Number.isFinite(numericId) && numericId > 0
-          ? await getArtist(numericId)
-          : await searchArtist(name);
-      if (!artistResult) {
-        setError('Artiste introuvable.');
+      const id = browseId || (displayName ? await findArtistByName(displayName) : null);
+      if (!id) {
+        setError('Artiste introuvable sur YouTube Music.');
         setStatus('error');
         return;
       }
-      const [topTracks, artistAlbums] = await Promise.all([
-        getArtistTopTracks(artistResult.id, TRACKS_LIMIT),
-        getArtistAlbums(artistResult.id, ALBUMS_LIMIT),
-      ]);
-      setArtistInfo(artistResult);
-      setTracks(topTracks);
-      setAlbums(artistAlbums);
+      setPage(await getArtistPage(id));
       setStatus('ready');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
       setStatus('error');
     }
-  }, []);
+  }, [browseId, displayName]);
 
   useEffect(() => {
-    if (artistName || artistId) load(artistName, artistId);
-  }, [artistName, artistId, load]);
+    load();
+  }, [load]);
 
-  const openAlbum = useCallback(
-    (album: DeezerAlbum) => {
+  const playSong = useCallback(
+    (song: YTSong, queue: YTSong[]) => {
+      playTrack(songToTrack(song), songsToTracks(queue.length > 0 ? queue : [song]));
+    },
+    [playTrack],
+  );
+
+  // Bouton lecture : on suit l'endpoint officiel de la page artiste (même
+  // sélection que music.youtube.com) et on retombe sur les titres populaires
+  // affichés si YouTube Music n'en fournit pas.
+  const playArtist = useCallback(
+    async (endpointKind: 'shuffle' | 'radio') => {
+      if (!page) return;
+      const endpoint = endpointKind === 'radio' ? page.radioEndpoint : page.shuffleEndpoint;
+      if (endpoint?.playlistId || endpoint?.videoId) {
+        try {
+          const queue = await getMusicQueue({
+            videoId: endpoint.videoId ?? undefined,
+            playlistId: endpoint.playlistId ?? undefined,
+            params: endpoint.params ?? undefined,
+          });
+          if (queue.songs.length > 0) {
+            playTrack(songToTrack(queue.songs[0]), songsToTracks(queue.songs));
+            return;
+          }
+        } catch {
+          // Repli sur les titres de la page ci-dessous.
+        }
+      }
+      if (page.songs.length === 0) return;
+      if (endpointKind === 'radio') {
+        playTrackRadio(songToTrack(page.songs[0]));
+        return;
+      }
+      playSong(page.songs[Math.floor(Math.random() * page.songs.length)], page.songs);
+    },
+    [page, playTrack, playTrackRadio, playSong],
+  );
+
+  const handleShuffle = useCallback(() => {
+    if (!shuffle) toggleShuffle();
+    playArtist('shuffle');
+  }, [shuffle, toggleShuffle, playArtist]);
+
+  const handleFollow = useCallback(() => {
+    if (!page) return;
+    toggleFollow(
+      { id: page.browseId, name: page.name, pictureUrl: page.thumbnail || null },
+      albumsOfArtistPage(page.sections).map((a) => a.browseId),
+    );
+  }, [page, toggleFollow]);
+
+  const openMore = useCallback(
+    (section: MusicSection) => {
+      if (!section.moreBrowseId) return;
       router.push({
-        pathname: '/music/album',
-        params: { albumId: String(album.id), title: album.title, coverUrl: album.coverUrl },
+        pathname: '/music/browse',
+        params: {
+          browseId: section.moreBrowseId,
+          params: section.moreParams ?? '',
+          title: section.title,
+        },
       });
     },
     [router],
   );
 
-  const handlePressTrack = useCallback(
-    async (track: DeezerTrack) => {
-      const video = await resolveTrack(track);
-      if (!video) {
-        Alert.alert('Introuvable', `Impossible de trouver "${track.title}" sur YouTube.`);
-        return;
-      }
-
-      // La file contient TOUS les titres populaires : ceux pas encore résolus
-      // côté YouTube y entrent en différé (résolus par le lecteur au moment
-      // de les jouer ou en préchargement). Sinon, un clic rapide fige une
-      // file quasi vide et l'avance automatique s'arrête à la fin de la
-      // piste cliquée.
-      const merged = { ...resolvedRef.current, [track.id]: video };
-      const queue = tracks.map((t) => {
-        const v = merged[t.id];
-        return v && v !== 'pending' ? toMusicTrack(v, t) : pendingMusicTrack(t);
-      });
-
-      playTrack(toMusicTrack(video, track), queue);
+  const handleItem = useCallback(
+    (item: YTItem) => {
+      if (item.type === 'artist' && item.browseId === page?.browseId) return;
+      openItem(item);
     },
-    [tracks, playTrack, resolveTrack, resolvedRef],
+    [openItem, page?.browseId],
   );
-
-  const handlePlayAll = useCallback(() => {
-    if (tracks.length > 0) handlePressTrack(tracks[0]);
-  }, [tracks, handlePressTrack]);
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
       <Pressable
         hitSlop={8}
         onPress={() => router.back()}
@@ -136,19 +160,23 @@ export default function ArtistScreen() {
         <Ionicons name="chevron-back" size={24} color="#ffffff" />
       </Pressable>
 
-      {status === 'loading' && <LoadingView label="Chargement de l'artiste..." />}
-      {status === 'error' && <ErrorView message={error ?? ''} onRetry={() => load(artistName, artistId)} />}
-      {status === 'ready' && (
+      {status === 'loading' && <LoadingView label={displayName || "Chargement de l'artiste..."} />}
+      {status === 'error' && <ErrorView message={error ?? ''} onRetry={load} />}
+      {status === 'ready' && page && (
         <FlatList
-          data={tracks}
-          keyExtractor={(item) => String(item.id)}
+          data={page.songs}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           contentContainerStyle={{ paddingBottom: contentBottomPadding }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.header}>
+            <View>
               <View style={styles.heroWrap}>
-                {artistInfo?.pictureUrl ? (
-                  <Image source={{ uri: artistInfo.pictureUrl }} style={styles.heroImage} contentFit="cover" />
+                {page.thumbnail ? (
+                  <Image
+                    source={{ uri: resizeThumbnail(page.thumbnail, 1000) }}
+                    style={styles.heroImage}
+                    contentFit="cover"
+                  />
                 ) : (
                   <View style={[styles.heroImage, styles.heroPlaceholder]}>
                     <Ionicons name="person" size={72} color={colors.muted} />
@@ -168,94 +196,109 @@ export default function ArtistScreen() {
                 <View style={styles.heroTextWrap}>
                   <Text style={styles.heroKicker}>Artiste</Text>
                   <Text style={styles.heroName} numberOfLines={2}>
-                    {artistInfo?.name ?? artistName}
+                    {page.name}
                   </Text>
-                  {artistInfo && artistInfo.fansCount >= 0 && (
-                    <Text style={styles.heroFans}>{formatCount(artistInfo.fansCount)} auditeurs</Text>
-                  )}
+                  {page.subscribers ? (
+                    <Text style={styles.heroSubscribers}>{page.subscribers}</Text>
+                  ) : null}
                 </View>
               </View>
 
               <View style={styles.actionsRow}>
-                {/* Suivre = s'abonner aux nouveautés : la discographie affichée
-                    sert de point de départ, seules les sorties postérieures
-                    entreront dans le fil Nouveautés. */}
-                {artistInfo && (
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => toggleFollow(artistInfo, albums.map((a) => a.id))}
-                    style={({ pressed }) => [
-                      styles.followButton,
-                      isFollowed && styles.followButtonActive,
-                      pressed && styles.followButtonPressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name={isFollowed ? 'notifications' : 'notifications-outline'}
-                      size={16}
-                      color={isFollowed ? colors.accent : colors.text}
-                    />
-                    <Text style={[styles.followLabel, isFollowed && styles.followLabelActive]}>
-                      {isFollowed ? 'Suivi' : 'Suivre'}
-                    </Text>
-                  </Pressable>
-                )}
+                <Pressable
+                  hitSlop={8}
+                  onPress={handleFollow}
+                  style={({ pressed }) => [
+                    styles.followButton,
+                    isFollowed && styles.followButtonActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={isFollowed ? 'notifications' : 'notifications-outline'}
+                    size={16}
+                    color={isFollowed ? colors.accent : colors.text}
+                  />
+                  <Text style={[styles.followLabel, isFollowed && { color: colors.accent }]}>
+                    {isFollowed ? 'Suivi' : 'Suivre'}
+                  </Text>
+                </Pressable>
+
                 <View style={styles.playControls}>
-                  <Pressable hitSlop={12} onPress={toggleShuffle} style={styles.shuffleButton}>
+                  <Pressable hitSlop={12} onPress={() => playArtist('radio')} style={styles.iconButton}>
+                    <Ionicons name="radio-outline" size={24} color={colors.text} />
+                  </Pressable>
+                  <Pressable hitSlop={12} onPress={handleShuffle} style={styles.iconButton}>
                     <Ionicons name="shuffle" size={26} color={shuffle ? colors.accent : colors.text} />
                   </Pressable>
                   <Pressable
                     hitSlop={8}
-                    onPress={handlePlayAll}
-                    disabled={tracks.length === 0}
-                    style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+                    onPress={() => playArtist('shuffle')}
+                    style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}
                   >
                     <Ionicons name="play" size={26} color={colors.accentText} style={styles.playIcon} />
                   </Pressable>
                 </View>
               </View>
 
-              {albums.length > 0 && (
-                <>
-                  <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Discographie</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.albumsList}
-                  >
-                    {albums.map((album) => (
-                      <View key={album.id} style={styles.albumCardWrap}>
-                        <AlbumCard album={album} onPress={() => openAlbum(album)} />
-                      </View>
-                    ))}
-                  </ScrollView>
-                </>
+              {page.songs.length > 0 && (
+                <View style={styles.songsHeader}>
+                  <Text style={styles.sectionTitle}>Titres populaires</Text>
+                  {page.songsMoreBrowseId ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/music/browse',
+                          params: { browseId: page.songsMoreBrowseId!, title: 'Titres' },
+                        })
+                      }
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+                    </Pressable>
+                  ) : null}
+                </View>
               )}
-
-              <Text style={[sharedStyles.sectionTitle, styles.sectionLabel]}>Titres populaires</Text>
             </View>
           }
-          renderItem={({ item, index }) => {
-            const video = resolved[item.id];
-            const activeVideo = video && video !== 'pending' ? video : null;
-            // Le second test couvre la piste courante encore différée (le
-            // lecteur n'a pas fini de la résoudre côté YouTube).
-            const isActive =
-              !!currentTrack &&
-              ((!!activeVideo && activeVideo.id === currentTrack.id) ||
-                currentTrack.id === pendingTrackId(item));
-            return (
-              <ArtistTrackRow
-                rank={index + 1}
-                track={item}
-                isResolving={video === 'pending'}
-                isActive={isActive}
+          renderItem={({ item }) => (
+            <View style={styles.songRowWrap}>
+              <SongRow
+                song={item}
+                isActive={item.id === currentTrack?.id}
                 isPlaying={isPlaying}
-                onPress={() => handlePressTrack(item)}
+                onPress={() => playSong(item, page.songs)}
+                onMenu={() => showSongMenu(item)}
               />
-            );
-          }}
-          ListEmptyComponent={<EmptyView message="Aucun titre trouvé pour cet artiste." />}
+            </View>
+          )}
+          ListEmptyComponent={
+            page.sections.length === 0 ? (
+              <EmptyView message="Aucun contenu pour cet artiste." />
+            ) : null
+          }
+          ListFooterComponent={
+            <View style={styles.footer}>
+              {page.description ? (
+                <View style={styles.aboutBlock}>
+                  <Text style={styles.sectionTitle}>À propos</Text>
+                  <Text style={styles.aboutText}>{page.description}</Text>
+                </View>
+              ) : null}
+              {page.sections.map((section, index) => (
+                <SectionCarousel
+                  key={`${section.title}-${index}`}
+                  section={section}
+                  currentTrackId={currentTrack?.id}
+                  isPlaying={isPlaying}
+                  onItemPress={handleItem}
+                  onSongPress={playSong}
+                  onSongMenu={showSongMenu}
+                  onMore={section.moreBrowseId ? () => openMore(section) : undefined}
+                />
+              ))}
+            </View>
+          }
         />
       )}
       <MiniPlayer />
@@ -269,6 +312,9 @@ function createStyles(colors: ColorPalette) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    pressed: {
+      opacity: 0.75,
+    },
     backButton: {
       position: 'absolute',
       left: 12,
@@ -279,9 +325,6 @@ function createStyles(colors: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    header: {
-      marginBottom: 8,
     },
     heroWrap: {
       width: '100%',
@@ -334,14 +377,14 @@ function createStyles(colors: ColorPalette) {
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
     },
-    heroFans: {
+    heroSubscribers: {
       color: 'rgba(255,255,255,0.85)',
       fontSize: 13,
       fontWeight: '600',
       marginTop: 6,
     },
-    // Pilule "Suivre" à gauche, shuffle et play regroupés à droite, comme sur
-    // les pages artiste de Spotify — le bouton play chevauche le bas du hero.
+    // Pilule "Suivre" à gauche, radio/aléatoire/lecture à droite, comme sur les
+    // pages artiste de YouTube Music — le bouton play chevauche le bas du hero.
     actionsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -353,7 +396,7 @@ function createStyles(colors: ColorPalette) {
     playControls: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
+      gap: 12,
     },
     followButton: {
       flexDirection: 'row',
@@ -368,21 +411,15 @@ function createStyles(colors: ColorPalette) {
     followButtonActive: {
       borderColor: colors.accent,
     },
-    followButtonPressed: {
-      opacity: 0.7,
-    },
     followLabel: {
       color: colors.text,
       fontSize: 13,
       fontWeight: '700',
       letterSpacing: 0.2,
     },
-    followLabelActive: {
-      color: colors.accent,
-    },
-    shuffleButton: {
-      width: 44,
-      height: 44,
+    iconButton: {
+      width: 40,
+      height: 40,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -399,22 +436,38 @@ function createStyles(colors: ColorPalette) {
       shadowRadius: 8,
       elevation: 6,
     },
-    playButtonPressed: {
-      opacity: 0.85,
-    },
     playIcon: {
       marginLeft: 3,
     },
-    sectionLabel: {
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+    },
+    songsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 20,
       paddingTop: 16,
-      paddingBottom: 12,
+      paddingBottom: 8,
     },
-    albumsList: {
+    songRowWrap: {
       paddingHorizontal: 20,
     },
-    albumCardWrap: {
-      marginRight: 16,
+    footer: {
+      paddingTop: 24,
+    },
+    aboutBlock: {
+      paddingHorizontal: 20,
+      paddingBottom: 26,
+      gap: 10,
+    },
+    aboutText: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 21,
     },
   });
 }
