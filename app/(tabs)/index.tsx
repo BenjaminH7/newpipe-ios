@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { searchVideos, searchVideosNextPage } from '@/api/youtube';
 import type { VideoSummary } from '@/api/youtube';
@@ -70,6 +71,12 @@ export default function SearchScreen() {
     }
   }, [nextpage, loadingMore, status]);
 
+  const openArtist = useCallback(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    router.push({ pathname: '/music/artist', params: { artist: trimmed } });
+  }, [query, router]);
+
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
@@ -77,7 +84,7 @@ export default function SearchScreen() {
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => runSearch(query)}
-          placeholder="Rechercher des vidéos..."
+          placeholder="Rechercher des vidéos ou un artiste..."
           placeholderTextColor={colors.muted}
           style={[sharedStyles.input, styles.input]}
           returnKeyType="search"
@@ -85,6 +92,9 @@ export default function SearchScreen() {
         />
         <Pressable style={sharedStyles.button} onPress={() => runSearch(query)}>
           <Text style={sharedStyles.buttonText}>Chercher</Text>
+        </Pressable>
+        <Pressable style={styles.artistButton} onPress={openArtist} hitSlop={8}>
+          <Ionicons name="person-outline" size={18} color={colors.accent} />
         </Pressable>
       </View>
 
@@ -146,6 +156,15 @@ function createStyles(colors: ColorPalette) {
     input: {
       flex: 1,
       fontSize: 15,
+    },
+    artistButton: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     list: {
       paddingHorizontal: 12,

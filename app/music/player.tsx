@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchLyrics, type LyricsLine, type LyricsResult } from '@/api/lyrics';
 import { translateLines, translateText } from '@/api/translate';
 import { QuotaBlockedView } from '@/components/QuotaBlockedView';
+import { useIsInMusicLibrary, useToggleTrackInLibrary } from '@/hooks/useMusicLibrary';
 import { useMusicQuotaMinutes, useTranslateLyrics } from '@/hooks/useSettings';
 import { useMusicQuotaExceeded } from '@/hooks/useUsageQuota';
 import { usePlayer } from '@/player/PlayerContext';
@@ -49,6 +50,8 @@ export default function MusicPlayerScreen() {
     setSleepTimer,
   } = usePlayer();
   const [trackWidth, setTrackWidth] = useState(0);
+  const isInLibrary = useIsInMusicLibrary(currentTrack?.id ?? '');
+  const toggleTrackInLibrary = useToggleTrackInLibrary();
   const [musicQuotaMinutes] = useMusicQuotaMinutes();
   const [translateLyrics, setTranslateLyrics] = useTranslateLyrics();
   const musicQuotaExceeded = useMusicQuotaExceeded();
@@ -296,16 +299,21 @@ export default function MusicPlayerScreen() {
       )}
 
       <View style={styles.meta}>
-        <Text style={[sharedStyles.text, styles.title]} numberOfLines={2}>
-          {currentTrack.title}
-        </Text>
-        <Pressable
-          hitSlop={6}
-          onPress={() => router.push({ pathname: '/music/artist', params: { artist: currentTrack.artist } })}
-        >
-          <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
-            {currentTrack.artist}
+        <View style={styles.metaText}>
+          <Text style={[sharedStyles.text, styles.title]} numberOfLines={2}>
+            {currentTrack.title}
           </Text>
+          <Pressable
+            hitSlop={6}
+            onPress={() => router.push({ pathname: '/music/artist', params: { artist: currentTrack.artist } })}
+          >
+            <Text style={[sharedStyles.mutedText, styles.artistLink]} numberOfLines={1}>
+              {currentTrack.artist}
+            </Text>
+          </Pressable>
+        </View>
+        <Pressable hitSlop={12} onPress={() => toggleTrackInLibrary(currentTrack)} style={styles.favoriteButton}>
+          <Ionicons name={isInLibrary ? 'heart' : 'heart-outline'} size={26} color={isInLibrary ? colors.accent : colors.text} />
         </Pressable>
       </View>
 
@@ -446,7 +454,13 @@ function createStyles(colors: ColorPalette) {
       marginBottom: 8,
     },
     meta: {
+      flexDirection: 'row',
+      alignItems: 'center',
       marginTop: 28,
+      gap: 12,
+    },
+    metaText: {
+      flex: 1,
       gap: 4,
     },
     title: {
@@ -456,6 +470,12 @@ function createStyles(colors: ColorPalette) {
     },
     artistLink: {
       fontWeight: '600',
+    },
+    favoriteButton: {
+      width: 26,
+      height: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     progressTouchArea: {
       justifyContent: 'center',

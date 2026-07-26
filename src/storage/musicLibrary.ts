@@ -138,6 +138,29 @@ export async function toggleMusicTrack(video: VideoSummary): Promise<void> {
   else await addToMusicLibrary(video);
 }
 
+// Ajout d'une piste déjà entièrement résolue (ex. piste en cours de lecture
+// venue de l'écran artiste, pas encore dans la bibliothèque) : contrairement
+// à addToMusicLibrary(), pas besoin de deviner titre/artiste ni de refaire un
+// appel pochette, on a déjà tout.
+export async function addMusicTrack(track: MusicTrack): Promise<void> {
+  if (isInMusicLibrary(track.id)) return;
+  const needsDownload = !track.localUri;
+  const entry: MusicTrack = {
+    ...track,
+    addedAt: Date.now(),
+    downloadStatus: needsDownload ? 'downloading' : track.downloadStatus,
+  };
+  cache = [entry, ...cache];
+  notify();
+  await persist();
+  if (needsDownload) runDownload(track.id);
+}
+
+export async function toggleTrackInLibrary(track: MusicTrack): Promise<void> {
+  if (isInMusicLibrary(track.id)) await removeFromMusicLibrary(track.id);
+  else await addMusicTrack(track);
+}
+
 export async function retryMusicDownload(id: string): Promise<void> {
   if (!cache.some((t) => t.id === id)) return;
   await updateTrack(id, { downloadStatus: 'downloading' });

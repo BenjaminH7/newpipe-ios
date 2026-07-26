@@ -7,6 +7,7 @@ import {
   retryMusicDownload,
   subscribeMusicLibrary,
   toggleMusicTrack,
+  toggleTrackInLibrary,
   type MusicTrack,
 } from '@/storage/musicLibrary';
 
@@ -29,6 +30,12 @@ export function useIsInMusicLibrary(id: string): boolean {
 export function useToggleMusicTrack(): (video: VideoSummary) => void {
   return useCallback((video: VideoSummary) => {
     toggleMusicTrack(video);
+  }, []);
+}
+
+export function useToggleTrackInLibrary(): (track: MusicTrack) => void {
+  return useCallback((track: MusicTrack) => {
+    toggleTrackInLibrary(track);
   }, []);
 }
 
